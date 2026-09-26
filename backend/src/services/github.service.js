@@ -33,4 +33,160 @@ async function fetchRepoMetadata(owner, repo) {
   };
 }
 
-module.exports = { createOctokit, fetchRepoMetadata };
+/**
+ * Fetch all merged pull requests for a repository.
+ * Returns PR number, title, body, author, dates, comments, changed files, and URL.
+ * @param {string} owner
+ * @param {string} repo
+ * @returns {Promise<Array>}
+ */
+async function fetchPullRequests(owner, repo) {
+  const octokit = createOctokit();
+  const pullRequests = [];
+
+  // Paginate through all closed (merged) PRs
+  for await (const response of octokit.paginate.iterator(octokit.pulls.list, {
+    owner,
+    repo,
+    state: 'closed',
+    per_page: 100,
+  })) {
+    for (const pr of response.data) {
+      // Only include merged PRs
+      if (!pr.merged_at) continue;
+
+      // Fetch PR comments for discussion context
+      const { data: comments } = await octokit.issues.listComments({
+        owner,
+        repo,
+        issue_number: pr.number,
+        per_page: 100,
+      });
+
+      // Fetch PR review comments
+      const { data: reviewComments } = await octokit.pulls.listReviewComments({
+        owner,
+        repo,
+        pull_number: pr.number,
+        per_page: 100,
+      });
+
+      // Fetch changed files
+      const { data: files } = await octokit.pulls.listFiles({
+        owner,
+        repo,
+        pull_number: pr.number,
+        per_page: 100,
+      });
+
+      pullRequests.push({
+        number: pr.number,
+        title: pr.title,
+        body: pr.body || '',
+        author: pr.user?.login || '',
+        createdAt: pr.created_at,
+        mergedAt: pr.merged_at,
+        url: pr.html_url,
+        comments: [
+          ...comments.map((c) => ({ author: c.user?.login || '', body: c.body, createdAt: c.created_at })),
+          ...reviewComments.map((c) => ({ author: c.user?.login || '', body: c.body, createdAt: c.created_at })),
+        ],
+        changedFiles: files.map((f) => f.filename),
+      });
+    }
+  }
+
+  return pullRequests;
+}
+
+/**
+ * Fetch commits for a repository.
+ * Returns SHA, message, author, date, and changed files for each commit.
+ * @param {string} owner
+ * @param {string} repo
+ * @returns {Promise<Array>}
+ */
+async function fetchCommits(owner, repo) {
+  const octokit = createOctokit();
+  const commits = [];
+
+  for await (const response of octokit.paginate.iterator(octokit.repos.listCommits, {
+    owner,
+    repo,
+    per_page: 100,
+  })) {
+    for (const commit of response.data) {
+      // Fetch the individual commit to get changed files
+      const { data: detail } = await octokit.repos.getCommit({
+        owner,
+        repo,
+        ref: commit.sha,
+      });
+
+      commits.push({
+        sha: commit.sha,
+        message: commit.commit.message,
+        author: commit.commit.author?.name || commit.author?.login || '',
+        date: commit.commit.author?.date || null,
+        url: commit.html_url,
+        changedFiles: (detail.files || []).map((f) => f.filename),
+      });
+    }
+  }
+
+  return commits;
+}
+
+/**
+ * Fetch all Markdown documentation files from a repository.
+ * Searches README.md, /docs/*, /adr/*, and any *.md file in the tree.
+ * Returns { path, content, url } for each file.
+ * @param {string} owner
+ * @param {string} repo
+ * @param {string} defaultBranch
+ * @returns {Promise<Array>}
+ */
+async function fetchMarkdownDocs(owner, repo, defaultBranch = 'main') {
+  const octokit = createOctokit();
+  const docs = [];
+
+  // Get the full file tree (recursive)
+  const { data: treeData } = await octokit.git.getTree({
+    owner,
+    repo,
+    tree_sha: defaultBranch,
+    recursive: 'true',
+  });
+
+  // Filter to only Markdown files
+  const mdFiles = treeData.tree.filter(
+    (item) => item.type === 'blob' && item.path.endsWith('.md')
+  );
+
+  for (const file of mdFiles) {
+    try {
+      const { data: blob } = await octokit.repos.getContent({
+        owner,
+        repo,
+        path: file.path,
+        ref: defaultBranch,
+      });
+
+      // getContent returns base64 encoded content for files
+      const content = Buffer.from(blob.content, 'base64').toString('utf8');
+
+      docs.push({
+        path: file.path,
+        content,
+        url: blob.html_url,
+      });
+    } catch (err) {
+      // Skip files that cannot be read
+      console.warn(`[github] Skipping ${file.path}: ${err.message}`);
+    }
+  }
+
+  return docs;
+}
+
+module.exports = { createOctokit, fetchRepoMetadata, fetchPullRequests, fetchCommits, fetchMarkdownDocs };
