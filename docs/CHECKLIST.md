@@ -1,7 +1,7 @@
 # EchoProof — Development Checklist
 
 > Track task completion per push. Check off each item as it is merged into `main`.
-> Last updated: feat/ingest-markdown-docs
+> Last updated: dev
 
 ---
 
@@ -10,7 +10,7 @@
 | Phase | Status | Tasks Done |
 |---|---|---|
 | Phase 1 — Foundation | ✅ Complete | 7 / 7 |
-| Phase 2 — GitHub Ingestion | 🟡 In Progress | 6 / 8 |
+| Phase 2 — GitHub Ingestion | ✅ Complete | 8 / 8 |
 | Phase 3 — Knowledge Indexing | ⬜ Not Started | 0 / 6 |
 | Phase 4 — AI Query Engine | ⬜ Not Started | 0 / 6 |
 | Phase 5 — Multi-Agent Investigation | ⬜ Not Started | 0 / 6 |
@@ -47,6 +47,10 @@
 - [x] Fetch Markdown documentation (`README.md`, `/docs/*`, `/adr/*`, `*.md`)
 - [x] Store raw ingested documents in MongoDB
 - [x] Track and expose ingestion status (`pending` → `indexing` → `ready` / `failed`) via `GET /api/context/:id/status`
+
+> **Fixes applied on this branch:**
+> - `fix: resolve .env path absolutely so token loads regardless of cwd`
+> - `fix(ingestion): guard against empty content on PRs, commits, and markdown docs`
 
 ---
 
