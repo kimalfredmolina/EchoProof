@@ -1,6 +1,6 @@
 const SystemContext = require('../models/SystemContext');
 const Document = require('../models/Document');
-const { fetchPullRequests, fetchCommits } = require('./github.service');
+const { fetchPullRequests, fetchCommits, fetchMarkdownDocs } = require('./github.service');
 
 /**
  * Update the ingestion progress fields on a SystemContext document.
@@ -98,4 +98,43 @@ async function ingestCommits(contextId, owner, repo) {
   return docs.length;
 }
 
-module.exports = { ingestPullRequests, ingestCommits, updateProgress };
+/**
+ * Classify a Markdown file path as 'adr', 'readme', or 'design_document'.
+ */
+function classifyMarkdownType(filePath) {
+  const lower = filePath.toLowerCase();
+  if (lower.includes('/adr/') || lower.match(/adr[-_]\d+/)) return 'adr';
+  if (lower === 'readme.md' || lower.endsWith('/readme.md')) return 'readme';
+  return 'design_document';
+}
+
+/**
+ * Ingest Markdown documentation files and store them as Documents.
+ * @param {string} contextId
+ * @param {string} owner
+ * @param {string} repo
+ * @param {string} defaultBranch
+ */
+async function ingestMarkdownDocs(contextId, owner, repo, defaultBranch) {
+  await updateProgress(contextId, { currentStep: 'Fetching documentation' });
+
+  const files = await fetchMarkdownDocs(owner, repo, defaultBranch);
+
+  if (files.length === 0) return 0;
+
+  const docs = files.map((file) => ({
+    contextId,
+    type: classifyMarkdownType(file.path),
+    title: file.path,
+    content: file.content,
+    metadata: {
+      url: file.url,
+      filePath: file.path,
+    },
+  }));
+
+  await Document.insertMany(docs);
+  return docs.length;
+}
+
+module.exports = { ingestPullRequests, ingestCommits, ingestMarkdownDocs, updateProgress };
