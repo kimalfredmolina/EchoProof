@@ -1,7 +1,7 @@
 # EchoProof — Development Checklist
 
 > Track task completion per push. Check off each item as it is merged into `main`.
-> Last updated: feat/ingest-pull-requests
+> Last updated: feat/repo-setup-page
 
 ---
 
@@ -10,13 +10,13 @@
 | Phase | Status | Tasks Done |
 |---|---|---|
 | Phase 1 — Foundation | ✅ Complete | 7 / 7 |
-| Phase 2 — GitHub Ingestion | 🟡 In Progress | 4 / 8 |
+| Phase 2 — GitHub Ingestion | ✅ Complete | 8 / 8 |
 | Phase 3 — Knowledge Indexing | ⬜ Not Started | 0 / 6 |
 | Phase 4 — AI Query Engine | ⬜ Not Started | 0 / 6 |
 | Phase 5 — Multi-Agent Investigation | ⬜ Not Started | 0 / 6 |
 | Phase 6 — Debugging Workflow | ⬜ Not Started | 0 / 7 |
 | Phase 7 — Incident Memory | ⬜ Not Started | 0 / 5 |
-| Phase 8 — Frontend Polish | ⬜ Not Started | 0 / 10 |
+| Phase 8 — Frontend Polish | 🟡 In Progress | 1 / 10 |
 | Phase 9 — Demo Preparation | ⬜ Not Started | 0 / 7 |
 
 ---
@@ -43,10 +43,10 @@
 - [x] Validate GitHub repository URLs on `POST /api/context`
 - [x] Fetch repository metadata (name, description, owner)
 - [x] Fetch merged pull requests (number, title, body, author, dates, comments, changed files, URL)
-- [ ] Fetch commits (SHA, message, author, date, changed files)
-- [ ] Fetch Markdown documentation (`README.md`, `/docs/*`, `/adr/*`, `*.md`)
-- [ ] Store raw ingested documents in MongoDB
-- [ ] Track and expose ingestion status (`pending` → `indexing` → `ready` / `failed`) via `GET /api/context/:id/status`
+- [x] Fetch commits (SHA, message, author, date, changed files)
+- [x] Fetch Markdown documentation (`README.md`, `/docs/*`, `/adr/*`, `*.md`)
+- [x] Store raw ingested documents in MongoDB
+- [x] Track and expose ingestion status (`pending` → `indexing` → `ready` / `failed`) via `GET /api/context/:id/status`
 
 ---
 
@@ -122,7 +122,7 @@
 
 > Goal: Complete, production-quality UI across all pages.
 
-- [ ] **Repository Setup page** — URL input, "Analyze Repository" button, progress bar, step label, error state
+- [x] **Repository Setup page** — URL input, "Analyze Repository" button, progress bar, step label, error state
 - [ ] **Main Dashboard** — repo name, status badge, document/PR/commit/incident counts, question input, "Investigate" button
 - [ ] **Investigation UI** — per-agent live status list (pending / running / complete)
 - [ ] **Answer UI** — root cause, why, evidence list with clickable GitHub links, confidence badge

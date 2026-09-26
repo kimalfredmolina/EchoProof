@@ -99,4 +99,94 @@ async function fetchPullRequests(owner, repo) {
   return pullRequests;
 }
 
-module.exports = { createOctokit, fetchRepoMetadata, fetchPullRequests };
+/**
+ * Fetch commits for a repository.
+ * Returns SHA, message, author, date, and changed files for each commit.
+ * @param {string} owner
+ * @param {string} repo
+ * @returns {Promise<Array>}
+ */
+async function fetchCommits(owner, repo) {
+  const octokit = createOctokit();
+  const commits = [];
+
+  for await (const response of octokit.paginate.iterator(octokit.repos.listCommits, {
+    owner,
+    repo,
+    per_page: 100,
+  })) {
+    for (const commit of response.data) {
+      // Fetch the individual commit to get changed files
+      const { data: detail } = await octokit.repos.getCommit({
+        owner,
+        repo,
+        ref: commit.sha,
+      });
+
+      commits.push({
+        sha: commit.sha,
+        message: commit.commit.message,
+        author: commit.commit.author?.name || commit.author?.login || '',
+        date: commit.commit.author?.date || null,
+        url: commit.html_url,
+        changedFiles: (detail.files || []).map((f) => f.filename),
+      });
+    }
+  }
+
+  return commits;
+}
+
+/**
+ * Fetch all Markdown documentation files from a repository.
+ * Searches README.md, /docs/*, /adr/*, and any *.md file in the tree.
+ * Returns { path, content, url } for each file.
+ * @param {string} owner
+ * @param {string} repo
+ * @param {string} defaultBranch
+ * @returns {Promise<Array>}
+ */
+async function fetchMarkdownDocs(owner, repo, defaultBranch = 'main') {
+  const octokit = createOctokit();
+  const docs = [];
+
+  // Get the full file tree (recursive)
+  const { data: treeData } = await octokit.git.getTree({
+    owner,
+    repo,
+    tree_sha: defaultBranch,
+    recursive: 'true',
+  });
+
+  // Filter to only Markdown files
+  const mdFiles = treeData.tree.filter(
+    (item) => item.type === 'blob' && item.path.endsWith('.md')
+  );
+
+  for (const file of mdFiles) {
+    try {
+      const { data: blob } = await octokit.repos.getContent({
+        owner,
+        repo,
+        path: file.path,
+        ref: defaultBranch,
+      });
+
+      // getContent returns base64 encoded content for files
+      const content = Buffer.from(blob.content, 'base64').toString('utf8');
+
+      docs.push({
+        path: file.path,
+        content,
+        url: blob.html_url,
+      });
+    } catch (err) {
+      // Skip files that cannot be read
+      console.warn(`[github] Skipping ${file.path}: ${err.message}`);
+    }
+  }
+
+  return docs;
+}
+
+module.exports = { createOctokit, fetchRepoMetadata, fetchPullRequests, fetchCommits, fetchMarkdownDocs };
