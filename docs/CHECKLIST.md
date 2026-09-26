@@ -1,7 +1,7 @@
 # EchoProof — Development Checklist
 
 > Track task completion per push. Check off each item as it is merged into `main`.
-> Last updated: feat/repo-setup-page
+> Last updated: feat/ingest-commits
 
 ---
 
@@ -10,7 +10,7 @@
 | Phase | Status | Tasks Done |
 |---|---|---|
 | Phase 1 — Foundation | ✅ Complete | 7 / 7 |
-| Phase 2 — GitHub Ingestion | ✅ Complete | 8 / 8 |
+| Phase 2 — GitHub Ingestion | 🟡 In Progress | 5 / 8 |
 | Phase 3 — Knowledge Indexing | ⬜ Not Started | 0 / 6 |
 | Phase 4 — AI Query Engine | ⬜ Not Started | 0 / 6 |
 | Phase 5 — Multi-Agent Investigation | ⬜ Not Started | 0 / 6 |
