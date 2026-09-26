@@ -137,4 +137,56 @@ async function fetchCommits(owner, repo) {
   return commits;
 }
 
-module.exports = { createOctokit, fetchRepoMetadata, fetchPullRequests, fetchCommits };
+/**
+ * Fetch all Markdown documentation files from a repository.
+ * Searches README.md, /docs/*, /adr/*, and any *.md file in the tree.
+ * Returns { path, content, url } for each file.
+ * @param {string} owner
+ * @param {string} repo
+ * @param {string} defaultBranch
+ * @returns {Promise<Array>}
+ */
+async function fetchMarkdownDocs(owner, repo, defaultBranch = 'main') {
+  const octokit = createOctokit();
+  const docs = [];
+
+  // Get the full file tree (recursive)
+  const { data: treeData } = await octokit.git.getTree({
+    owner,
+    repo,
+    tree_sha: defaultBranch,
+    recursive: 'true',
+  });
+
+  // Filter to only Markdown files
+  const mdFiles = treeData.tree.filter(
+    (item) => item.type === 'blob' && item.path.endsWith('.md')
+  );
+
+  for (const file of mdFiles) {
+    try {
+      const { data: blob } = await octokit.repos.getContent({
+        owner,
+        repo,
+        path: file.path,
+        ref: defaultBranch,
+      });
+
+      // getContent returns base64 encoded content for files
+      const content = Buffer.from(blob.content, 'base64').toString('utf8');
+
+      docs.push({
+        path: file.path,
+        content,
+        url: blob.html_url,
+      });
+    } catch (err) {
+      // Skip files that cannot be read
+      console.warn(`[github] Skipping ${file.path}: ${err.message}`);
+    }
+  }
+
+  return docs;
+}
+
+module.exports = { createOctokit, fetchRepoMetadata, fetchPullRequests, fetchCommits, fetchMarkdownDocs };
