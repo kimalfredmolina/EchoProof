@@ -1,6 +1,6 @@
 const SystemContext = require('../models/SystemContext');
 const Document = require('../models/Document');
-const { fetchPullRequests, fetchCommits, fetchMarkdownDocs } = require('./github.service');
+const { fetchRepoMetadata, fetchPullRequests, fetchCommits, fetchMarkdownDocs } = require('./github.service');
 
 /**
  * Update the ingestion progress fields on a SystemContext document.
@@ -137,4 +137,57 @@ async function ingestMarkdownDocs(contextId, owner, repo, defaultBranch) {
   return docs.length;
 }
 
-module.exports = { ingestPullRequests, ingestCommits, ingestMarkdownDocs, updateProgress };
+/**
+ * Full ingestion pipeline — runs all steps sequentially and updates status throughout.
+ * This is intended to be called in the background after returning a contextId to the caller.
+ *
+ * @param {string} contextId - MongoDB ObjectId string of the SystemContext
+ * @param {string} owner
+ * @param {string} repo
+ */
+async function runIngestion(contextId, owner, repo) {
+  try {
+    await SystemContext.findByIdAndUpdate(contextId, { status: 'indexing' });
+
+    // Step 1: fetch and update repo metadata (name, description, defaultBranch)
+    await updateProgress(contextId, { currentStep: 'Fetching repository metadata' });
+    const meta = await fetchRepoMetadata(owner, repo);
+    await SystemContext.findByIdAndUpdate(contextId, {
+      name: meta.fullName,
+      description: meta.description,
+    });
+
+    // Step 2: ingest PRs
+    const prCount = await ingestPullRequests(contextId, owner, repo);
+
+    // Step 3: ingest commits
+    const commitCount = await ingestCommits(contextId, owner, repo);
+
+    // Step 4: ingest Markdown docs
+    const docsCount = await ingestMarkdownDocs(contextId, owner, repo, meta.defaultBranch);
+
+    const totalDocuments = prCount + commitCount + docsCount;
+
+    await SystemContext.findByIdAndUpdate(contextId, {
+      status: 'ready',
+      $set: {
+        'ingestionProgress.currentStep': 'Complete',
+        'ingestionProgress.percentage': 100,
+        'ingestionProgress.processedDocuments': totalDocuments,
+        'ingestionProgress.totalDocuments': totalDocuments,
+      },
+    });
+
+    console.log(
+      `[ingestion] Context ${contextId} ready — PRs: ${prCount}, commits: ${commitCount}, docs: ${docsCount}`
+    );
+  } catch (err) {
+    console.error(`[ingestion] Context ${contextId} failed:`, err.message);
+    await SystemContext.findByIdAndUpdate(contextId, {
+      status: 'failed',
+      $set: { 'ingestionProgress.currentStep': `Failed: ${err.message}` },
+    });
+  }
+}
+
+module.exports = { runIngestion, ingestPullRequests, ingestCommits, ingestMarkdownDocs, updateProgress };
