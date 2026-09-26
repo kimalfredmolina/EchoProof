@@ -1,0 +1,36 @@
+const express = require('express');
+const cors = require('cors');
+const { env } = require('./config/environment');
+const { connectDatabase } = require('./config/database');
+const contextRoutes = require('./routes/context.routes');
+
+const app = express();
+
+app.use(cors({ origin: env.FRONTEND_URL }));
+app.use(express.json());
+
+// Health check
+app.get('/api/ping', (req, res) => {
+  res.json({ message: 'pong', status: 'Backend is connected!', timestamp: new Date().toISOString() });
+});
+
+// Routes
+app.use('/api/context', contextRoutes);
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('[error]', err.message);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+async function start() {
+  await connectDatabase();
+  app.listen(env.PORT, () => {
+    console.log(`[server] Running on http://localhost:${env.PORT}`);
+  });
+}
+
+start().catch((err) => {
+  console.error('[server] Failed to start:', err.message);
+  process.exit(1);
+});
