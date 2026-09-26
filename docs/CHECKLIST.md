@@ -1,7 +1,7 @@
 # EchoProof — Development Checklist
 
 > Track task completion per push. Check off each item as it is merged into `main`.
-> Last updated: feat/store-raw-documents
+> Last updated: feat/octokit-setup
 
 ---
 
