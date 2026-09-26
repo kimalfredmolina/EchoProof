@@ -36,10 +36,10 @@ async function ingestPullRequests(contextId, owner, repo) {
       `PR #${pr.number}: ${pr.title}`,
       pr.body,
       commentText,
-      `Changed files:\n${pr.changedFiles.join('\n')}`,
+      pr.changedFiles.length ? `Changed files:\n${pr.changedFiles.join('\n')}` : '',
     ]
       .filter(Boolean)
-      .join('\n\n');
+      .join('\n\n') || `PR #${pr.number}: ${pr.title}`;
 
     return {
       contextId,
@@ -73,17 +73,18 @@ async function ingestCommits(contextId, owner, repo) {
   if (commits.length === 0) return 0;
 
   const docs = commits.map((commit) => {
+    const firstLine = commit.message.split('\n')[0].trim() || commit.sha.slice(0, 12);
     const content = [
-      commit.message,
-      `Changed files:\n${commit.changedFiles.join('\n')}`,
+      commit.message.trim(),
+      commit.changedFiles.length ? `Changed files:\n${commit.changedFiles.join('\n')}` : '',
     ]
       .filter(Boolean)
-      .join('\n\n');
+      .join('\n\n') || firstLine;
 
     return {
       contextId,
       type: 'commit',
-      title: commit.message.split('\n')[0].slice(0, 120),
+      title: firstLine.slice(0, 120),
       content,
       metadata: {
         url: commit.url,
@@ -122,11 +123,16 @@ async function ingestMarkdownDocs(contextId, owner, repo, defaultBranch) {
 
   if (files.length === 0) return 0;
 
-  const docs = files.map((file) => ({
+  // Skip files with no content
+  const validFiles = files.filter((file) => file.content && file.content.trim());
+
+  if (validFiles.length === 0) return 0;
+
+  const docs = validFiles.map((file) => ({
     contextId,
     type: classifyMarkdownType(file.path),
     title: file.path,
-    content: file.content,
+    content: file.content.trim(),
     metadata: {
       url: file.url,
       filePath: file.path,
