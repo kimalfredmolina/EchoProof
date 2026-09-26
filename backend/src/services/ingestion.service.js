@@ -1,6 +1,6 @@
 const SystemContext = require('../models/SystemContext');
 const Document = require('../models/Document');
-const { fetchPullRequests } = require('./github.service');
+const { fetchPullRequests, fetchCommits } = require('./github.service');
 
 /**
  * Update the ingestion progress fields on a SystemContext document.
@@ -59,4 +59,43 @@ async function ingestPullRequests(contextId, owner, repo) {
   return docs.length;
 }
 
-module.exports = { ingestPullRequests, updateProgress };
+/**
+ * Ingest commits for a repository and store them as Documents.
+ * @param {string} contextId
+ * @param {string} owner
+ * @param {string} repo
+ */
+async function ingestCommits(contextId, owner, repo) {
+  await updateProgress(contextId, { currentStep: 'Fetching commits' });
+
+  const commits = await fetchCommits(owner, repo);
+
+  if (commits.length === 0) return 0;
+
+  const docs = commits.map((commit) => {
+    const content = [
+      commit.message,
+      `Changed files:\n${commit.changedFiles.join('\n')}`,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    return {
+      contextId,
+      type: 'commit',
+      title: commit.message.split('\n')[0].slice(0, 120),
+      content,
+      metadata: {
+        url: commit.url,
+        author: commit.author,
+        date: commit.date ? new Date(commit.date) : null,
+        sha: commit.sha,
+      },
+    };
+  });
+
+  await Document.insertMany(docs);
+  return docs.length;
+}
+
+module.exports = { ingestPullRequests, ingestCommits, updateProgress };

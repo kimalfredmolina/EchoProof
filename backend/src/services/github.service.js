@@ -99,4 +99,42 @@ async function fetchPullRequests(owner, repo) {
   return pullRequests;
 }
 
-module.exports = { createOctokit, fetchRepoMetadata, fetchPullRequests };
+/**
+ * Fetch commits for a repository.
+ * Returns SHA, message, author, date, and changed files for each commit.
+ * @param {string} owner
+ * @param {string} repo
+ * @returns {Promise<Array>}
+ */
+async function fetchCommits(owner, repo) {
+  const octokit = createOctokit();
+  const commits = [];
+
+  for await (const response of octokit.paginate.iterator(octokit.repos.listCommits, {
+    owner,
+    repo,
+    per_page: 100,
+  })) {
+    for (const commit of response.data) {
+      // Fetch the individual commit to get changed files
+      const { data: detail } = await octokit.repos.getCommit({
+        owner,
+        repo,
+        ref: commit.sha,
+      });
+
+      commits.push({
+        sha: commit.sha,
+        message: commit.commit.message,
+        author: commit.commit.author?.name || commit.author?.login || '',
+        date: commit.commit.author?.date || null,
+        url: commit.html_url,
+        changedFiles: (detail.files || []).map((f) => f.filename),
+      });
+    }
+  }
+
+  return commits;
+}
+
+module.exports = { createOctokit, fetchRepoMetadata, fetchPullRequests, fetchCommits };
