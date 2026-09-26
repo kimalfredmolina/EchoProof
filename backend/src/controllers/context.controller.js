@@ -1,6 +1,7 @@
 const SystemContext = require('../models/SystemContext');
+const { fetchRepoMetadata } = require('../services/github.service');
 
-// POST /api/context — create a new system context (repository ingestion entry point)
+// POST /api/context — create a new system context and kick off metadata fetch
 async function createContext(req, res) {
   const { repoUrl } = req.body;
 
@@ -8,21 +9,37 @@ async function createContext(req, res) {
     return res.status(400).json({ error: 'repoUrl is required' });
   }
 
-  // Basic GitHub URL validation
+  // Validate GitHub URL format
   const match = repoUrl.trim().match(/^https:\/\/github\.com\/([^/]+)\/([^/]+?)(\.git)?$/);
   if (!match) {
-    return res.status(400).json({ error: 'Repository URL is invalid. Expected: https://github.com/owner/repo' });
+    return res.status(400).json({
+      error: 'Repository URL is invalid. Expected: https://github.com/owner/repo',
+    });
   }
 
   const owner = match[1];
   const repository = match[2];
 
+  // Create the context record immediately so the caller gets a contextId
   const context = await SystemContext.create({
     repoUrl: repoUrl.trim(),
     owner,
     repository,
     name: `${owner}/${repository}`,
+    status: 'pending',
   });
+
+  // Fetch metadata asynchronously — do not await so the response is returned immediately
+  fetchRepoMetadata(owner, repository)
+    .then(async (meta) => {
+      await SystemContext.findByIdAndUpdate(context._id, {
+        name: meta.fullName,
+        description: meta.description,
+      });
+    })
+    .catch((err) => {
+      console.error(`[github] Failed to fetch metadata for ${owner}/${repository}:`, err.message);
+    });
 
   return res.status(201).json({ contextId: context._id, status: context.status });
 }
