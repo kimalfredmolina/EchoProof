@@ -1,7 +1,7 @@
 const SystemContext = require('../models/SystemContext');
-const { fetchRepoMetadata } = require('../services/github.service');
+const { runIngestion } = require('../services/ingestion.service');
 
-// POST /api/context — create a new system context and kick off metadata fetch
+// POST /api/context — create a new system context and start background ingestion
 async function createContext(req, res) {
   const { repoUrl } = req.body;
 
@@ -20,7 +20,7 @@ async function createContext(req, res) {
   const owner = match[1];
   const repository = match[2];
 
-  // Create the context record immediately so the caller gets a contextId
+  // Create the context record immediately so the caller gets a contextId back right away
   const context = await SystemContext.create({
     repoUrl: repoUrl.trim(),
     owner,
@@ -29,17 +29,8 @@ async function createContext(req, res) {
     status: 'pending',
   });
 
-  // Fetch metadata asynchronously — do not await so the response is returned immediately
-  fetchRepoMetadata(owner, repository)
-    .then(async (meta) => {
-      await SystemContext.findByIdAndUpdate(context._id, {
-        name: meta.fullName,
-        description: meta.description,
-      });
-    })
-    .catch((err) => {
-      console.error(`[github] Failed to fetch metadata for ${owner}/${repository}:`, err.message);
-    });
+  // Run the full ingestion pipeline in the background — do not await
+  runIngestion(context._id.toString(), owner, repository);
 
   return res.status(201).json({ contextId: context._id, status: context.status });
 }
@@ -62,6 +53,7 @@ async function getContextStatus(req, res) {
     status: context.status,
     progress: context.ingestionProgress.percentage,
     currentStep: context.ingestionProgress.currentStep,
+    lastSuccessfulStep: context.ingestionProgress.lastSuccessfulStep,
     processedDocuments: context.ingestionProgress.processedDocuments,
     totalDocuments: context.ingestionProgress.totalDocuments,
   });
