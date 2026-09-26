@@ -146,25 +146,37 @@ async function ingestMarkdownDocs(contextId, owner, repo, defaultBranch) {
  * @param {string} repo
  */
 async function runIngestion(contextId, owner, repo) {
+  let lastSuccessfulStep = '';
+
   try {
     await SystemContext.findByIdAndUpdate(contextId, { status: 'indexing' });
 
-    // Step 1: fetch and update repo metadata (name, description, defaultBranch)
-    await updateProgress(contextId, { currentStep: 'Fetching repository metadata' });
+    // Step 1 (10%): fetch repo metadata
+    await updateProgress(contextId, {
+      currentStep: 'Fetching repository metadata',
+      percentage: 10,
+    });
     const meta = await fetchRepoMetadata(owner, repo);
     await SystemContext.findByIdAndUpdate(contextId, {
       name: meta.fullName,
       description: meta.description,
     });
+    lastSuccessfulStep = 'Fetching repository metadata';
 
-    // Step 2: ingest PRs
+    // Step 2 (30%): ingest PRs
+    await updateProgress(contextId, { percentage: 30 });
     const prCount = await ingestPullRequests(contextId, owner, repo);
+    lastSuccessfulStep = 'Fetching pull requests';
 
-    // Step 3: ingest commits
+    // Step 3 (60%): ingest commits
+    await updateProgress(contextId, { percentage: 60 });
     const commitCount = await ingestCommits(contextId, owner, repo);
+    lastSuccessfulStep = 'Fetching commits';
 
-    // Step 4: ingest Markdown docs
+    // Step 4 (90%): ingest Markdown docs
+    await updateProgress(contextId, { percentage: 90 });
     const docsCount = await ingestMarkdownDocs(contextId, owner, repo, meta.defaultBranch);
+    lastSuccessfulStep = 'Fetching documentation';
 
     const totalDocuments = prCount + commitCount + docsCount;
 
@@ -175,6 +187,7 @@ async function runIngestion(contextId, owner, repo) {
         'ingestionProgress.percentage': 100,
         'ingestionProgress.processedDocuments': totalDocuments,
         'ingestionProgress.totalDocuments': totalDocuments,
+        'ingestionProgress.lastSuccessfulStep': lastSuccessfulStep,
       },
     });
 
@@ -185,7 +198,10 @@ async function runIngestion(contextId, owner, repo) {
     console.error(`[ingestion] Context ${contextId} failed:`, err.message);
     await SystemContext.findByIdAndUpdate(contextId, {
       status: 'failed',
-      $set: { 'ingestionProgress.currentStep': `Failed: ${err.message}` },
+      $set: {
+        'ingestionProgress.currentStep': `Failed: ${err.message}`,
+        'ingestionProgress.lastSuccessfulStep': lastSuccessfulStep,
+      },
     });
   }
 }

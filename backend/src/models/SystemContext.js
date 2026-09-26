@@ -6,6 +6,7 @@ const ingestionProgressSchema = new mongoose.Schema(
     processedDocuments: { type: Number, default: 0 },
     percentage: { type: Number, default: 0 },
     currentStep: { type: String, default: '' },
+    lastSuccessfulStep: { type: String, default: '' },
   },
   { _id: false }
 );
