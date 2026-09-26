@@ -53,6 +53,7 @@ async function getContextStatus(req, res) {
     status: context.status,
     progress: context.ingestionProgress.percentage,
     currentStep: context.ingestionProgress.currentStep,
+    lastSuccessfulStep: context.ingestionProgress.lastSuccessfulStep,
     processedDocuments: context.ingestionProgress.processedDocuments,
     totalDocuments: context.ingestionProgress.totalDocuments,
   });
