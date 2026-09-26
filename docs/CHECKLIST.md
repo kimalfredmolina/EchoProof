@@ -1,7 +1,7 @@
 # EchoProof — Development Checklist
 
 > Track task completion per push. Check off each item as it is merged into `main`.
-> Last updated: phase/1-foundation
+> Last updated: feat/ingestion-status-tracking
 
 ---
 
@@ -10,7 +10,7 @@
 | Phase | Status | Tasks Done |
 |---|---|---|
 | Phase 1 — Foundation | ✅ Complete | 7 / 7 |
-| Phase 2 — GitHub Ingestion | ⬜ Not Started | 0 / 8 |
+| Phase 2 — GitHub Ingestion | ✅ Complete | 8 / 8 |
 | Phase 3 — Knowledge Indexing | ⬜ Not Started | 0 / 6 |
 | Phase 4 — AI Query Engine | ⬜ Not Started | 0 / 6 |
 | Phase 5 — Multi-Agent Investigation | ⬜ Not Started | 0 / 6 |
@@ -39,14 +39,14 @@
 
 > Goal: A GitHub repository can be analyzed and its engineering history stored in MongoDB.
 
-- [ ] Install and configure Octokit (`@octokit/rest`)
-- [ ] Validate GitHub repository URLs on `POST /api/context`
-- [ ] Fetch repository metadata (name, description, owner)
-- [ ] Fetch merged pull requests (number, title, body, author, dates, comments, changed files, URL)
-- [ ] Fetch commits (SHA, message, author, date, changed files)
-- [ ] Fetch Markdown documentation (`README.md`, `/docs/*`, `/adr/*`, `*.md`)
-- [ ] Store raw ingested documents in MongoDB
-- [ ] Track and expose ingestion status (`pending` → `indexing` → `ready` / `failed`) via `GET /api/context/:id/status`
+- [x] Install and configure Octokit (`@octokit/rest`)
+- [x] Validate GitHub repository URLs on `POST /api/context`
+- [x] Fetch repository metadata (name, description, owner)
+- [x] Fetch merged pull requests (number, title, body, author, dates, comments, changed files, URL)
+- [x] Fetch commits (SHA, message, author, date, changed files)
+- [x] Fetch Markdown documentation (`README.md`, `/docs/*`, `/adr/*`, `*.md`)
+- [x] Store raw ingested documents in MongoDB
+- [x] Track and expose ingestion status (`pending` → `indexing` → `ready` / `failed`) via `GET /api/context/:id/status`
 
 ---
 
