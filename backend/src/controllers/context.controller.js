@@ -1,6 +1,7 @@
 const SystemContext = require('../models/SystemContext');
+const { runIngestion } = require('../services/ingestion.service');
 
-// POST /api/context — create a new system context (repository ingestion entry point)
+// POST /api/context — create a new system context and start background ingestion
 async function createContext(req, res) {
   const { repoUrl } = req.body;
 
@@ -8,21 +9,28 @@ async function createContext(req, res) {
     return res.status(400).json({ error: 'repoUrl is required' });
   }
 
-  // Basic GitHub URL validation
+  // Validate GitHub URL format
   const match = repoUrl.trim().match(/^https:\/\/github\.com\/([^/]+)\/([^/]+?)(\.git)?$/);
   if (!match) {
-    return res.status(400).json({ error: 'Repository URL is invalid. Expected: https://github.com/owner/repo' });
+    return res.status(400).json({
+      error: 'Repository URL is invalid. Expected: https://github.com/owner/repo',
+    });
   }
 
   const owner = match[1];
   const repository = match[2];
 
+  // Create the context record immediately so the caller gets a contextId back right away
   const context = await SystemContext.create({
     repoUrl: repoUrl.trim(),
     owner,
     repository,
     name: `${owner}/${repository}`,
+    status: 'pending',
   });
+
+  // Run the full ingestion pipeline in the background — do not await
+  runIngestion(context._id.toString(), owner, repository);
 
   return res.status(201).json({ contextId: context._id, status: context.status });
 }
