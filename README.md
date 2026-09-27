@@ -10,7 +10,7 @@ EchoProof is an AI software-maintenance teammate that investigates repository hi
 
 ### Prerequisites
 
-- [Node.js v18+](https://nodejs.org/)
+- [Node.js v22.12+](https://nodejs.org/)
 - The `.env` file sent to you by the team (place it at `backend/.env`)
 
 ---
@@ -145,6 +145,42 @@ EchoProof-AI-Decision-Memory/
 | `ALLOW_EXTERNAL_SYNTHESIS` | Set `true` to permit public or private evidence to be sent to OpenAI |
 | `GROQ_API_KEY` | Groq API key retained for Groq-based integrations |
 | `FRONTEND_URL` | Frontend URL for CORS (default `http://localhost:5173`) |
+
+---
+
+## Deploying to Render and Vercel
+
+The frontend calls the backend through `VITE_API_URL`; Vite embeds this value at build time. The backend accepts browser requests only from the exact origins in `FRONTEND_URL`.
+
+### 1. Deploy the backend on Render
+
+The root [`render.yaml`](render.yaml) can create the web service as a Render Blueprint. If you configure it manually, use:
+
+| Setting | Value |
+|---|---|
+| Root Directory | `backend` |
+| Build Command | `npm ci` |
+| Start Command | `npm start` |
+| Health Check Path | `/api/ping` |
+| Node | `>=22.12.0` |
+
+Set `MONGODB_URI`, `GITHUB_TOKEN`, `GROQ_API_KEY`, and `FRONTEND_URL` in Render. Set `FRONTEND_URL` to the exact Vercel origin, such as `https://your-app.vercel.app`, with no path. Multiple exact production/preview origins can be comma-separated. Do not set `PORT`; Render supplies it.
+
+### 2. Deploy the frontend on Vercel
+
+Import this repository and configure:
+
+| Setting | Value |
+|---|---|
+| Root Directory | `frontend` |
+| Framework Preset | Vite |
+| Build Command | `npm run build` |
+| Output Directory | `dist` |
+| Node | `>=22.12.0` |
+
+Add `VITE_API_URL=https://your-backend.onrender.com` to the Vercel Production environment (and Preview if required), with no `/api` suffix or trailing slash. Redeploy after changing it because Vite environment variables are embedded during the build.
+
+Finally, update Render's `FRONTEND_URL` if Vercel assigns a different production domain, then verify `https://your-backend.onrender.com/api/ping` and submit a repository through the deployed UI.
 
 ---
 

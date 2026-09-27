@@ -16,7 +16,10 @@ const env = {
     .split(',')
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean),
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+  FRONTEND_URLS: (process.env.FRONTEND_URL || 'http://localhost:5173')
+    .split(',')
+    .map((url) => url.trim().replace(/\/+$/, ''))
+    .filter(Boolean),
 };
 
 const required = ['MONGODB_URI', 'GITHUB_TOKEN', 'GROQ_API_KEY'];

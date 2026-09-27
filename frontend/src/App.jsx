@@ -6,10 +6,18 @@ import { Input } from './components/ui/input'
 import { Separator } from './components/ui/separator'
 import { Textarea } from './components/ui/textarea'
 
-async function requestJson(url, options) {
-  const response = await fetch(url, options)
-  const data = await response.json()
-  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`)
+const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
+
+async function requestJson(path, options) {
+  const response = await fetch(`${API_URL}${path}`, options)
+  const contentType = response.headers.get('content-type') || ''
+  const data = contentType.includes('application/json') ? await response.json() : null
+
+  if (!response.ok) {
+    throw new Error(data?.error || `Request failed with HTTP ${response.status}`)
+  }
+  if (!data) throw new Error('The API returned an invalid response')
+
   return data
 }
 
