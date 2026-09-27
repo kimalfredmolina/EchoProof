@@ -117,6 +117,35 @@ async function searchDocuments({ contextId, question, types, limit = 8, includeC
     .slice(0, limit);
 }
 
+/**
+ * Compute a similarity bonus from a stored keyword embedding.
+ * The embedding is stored as flat [hash, freq, hash, freq, ...] pairs
+ * produced by buildKeywordEmbedding() in incident.controller.js.
+ * We hash each query term the same way and look for overlaps.
+ * @param {number[]} embedding
+ * @param {string[]} terms
+ * @returns {number}
+ */
+function embeddingSimilarityBonus(embedding, terms) {
+  if (!Array.isArray(embedding) || embedding.length < 2) return 0;
+
+  // Rebuild hash → freq map from the stored flat array
+  const stored = new Map();
+  for (let i = 0; i + 1 < embedding.length; i += 2) {
+    stored.set(embedding[i], embedding[i + 1]);
+  }
+
+  let bonus = 0;
+  for (const term of terms) {
+    let hash = 5381;
+    for (let i = 0; i < term.length; i++) {
+      hash = ((hash << 5) + hash + term.charCodeAt(i)) >>> 0;
+    }
+    if (stored.has(hash)) bonus += stored.get(hash);
+  }
+  return bonus;
+}
+
 async function searchIncidents({ contextId, question, limit = 6 }) {
   const terms = tokenize(question);
   if (!terms.length) return [];
@@ -128,26 +157,36 @@ async function searchIncidents({ contextId, question, limit = 6 }) {
 
   return incidents
     .map((incident) => {
-      const score = scoreText(terms, [
+      const textScore = scoreText(terms, [
         { value: incident.title, weight: 5 },
         { value: incident.problem, weight: 3 },
         { value: incident.rootCause, weight: 3 },
         { value: incident.resolution, weight: 2 },
         { value: (incident.affectedFiles || []).join(' '), weight: 4 },
       ]);
+      // Embedding bonus rewards incidents whose stored keyword distribution
+      // overlaps with the current query terms — wires Phase 7 embedding storage
+      // into the Historical Incident Agent without a full vector index.
+      const embeddingBonus = embeddingSimilarityBonus(incident.embedding, terms);
+      const score = textScore + embeddingBonus;
+
       const linkedEvidence = (incident.evidence || []).find((item) => item.url);
       return {
         id: String(incident._id),
         type: 'incident',
         title: incident.title,
         url: linkedEvidence?.url || '',
-        reference: `Incident ${incident._id}`,
+        reference: `Incident ${String(incident._id).slice(-8)}`,
         excerpt: excerptAroundTerms(
           `Problem: ${incident.problem}\nRoot cause: ${incident.rootCause}\nResolution: ${incident.resolution}`,
           terms
         ),
         score,
-        metadata: { date: incident.createdAt, filePath: (incident.affectedFiles || [])[0] || '' },
+        metadata: {
+          date: incident.createdAt,
+          filePath: (incident.affectedFiles || [])[0] || '',
+          confidence: incident.confidence || '',
+        },
       };
     })
     .filter((evidence) => evidence.score > 0)
