@@ -101,13 +101,13 @@
 
 > Goal: EchoProof can demonstrate an end-to-end debugging workflow.
 
-- [ ] Add dedicated bug-report input (separate from general query)
-- [ ] Identify relevant source code files from the bug description
-- [ ] Analyze Git history for changes related to the reported bug
-- [ ] Search historical incidents for similar past issues
-- [ ] Generate root-cause report (problem, root cause, evidence, affected files)
-- [ ] Generate recommended fix proposal (never auto-applied)
-- [ ] Generate recommended tests for the proposed fix
+- [x] Add dedicated bug-report input (separate from general query)
+- [x] Identify relevant source code files from the bug description
+- [x] Analyze Git history for changes related to the reported bug
+- [x] Search historical incidents for similar past issues
+- [x] Generate root-cause report (problem, root cause, evidence, affected files)
+- [x] Generate recommended fix proposal (never auto-applied)
+- [x] Generate recommended tests for the proposed fix
 
 ---
 
