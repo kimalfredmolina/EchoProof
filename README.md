@@ -95,6 +95,17 @@ Poll the status with the returned `contextId`:
 Invoke-RestMethod http://localhost:5000/api/context/<contextId>/status
 ```
 
+After the context reports `ready`, trigger the Phase 5 multi-agent investigation:
+
+```powershell
+Invoke-RestMethod -Method POST `
+  -Uri http://localhost:5000/api/context/<contextId>/query `
+  -ContentType "application/json" `
+  -Body '{"question":"Why was authentication changed?"}'
+```
+
+The response contains every agent's status and summary, merged/deduplicated evidence, confidence, and an evidence-grounded answer. Querying is limited to repositories verified as public; existing contexts created before this field was introduced should be re-ingested. Retrieval falls back to lexical matching while Phase 3 is unfinished. External OpenAI synthesis is opt-in (`ALLOW_EXTERNAL_SYNTHESIS=true`); otherwise EchoProof returns an honest evidence-only summary.
+
 Or just use the UI at **http://localhost:5173** — paste the repo URL and click **Analyze Repository**.
 
 ---

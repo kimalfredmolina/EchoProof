@@ -3,6 +3,7 @@ const cors = require('cors');
 const { env } = require('./config/environment');
 const { connectDatabase } = require('./config/database');
 const contextRoutes = require('./routes/context.routes');
+const queryRoutes = require('./routes/query.routes');
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.get('/api/ping', (req, res) => {
 
 // Routes
 app.use('/api/context', contextRoutes);
+app.use('/api/context', queryRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
