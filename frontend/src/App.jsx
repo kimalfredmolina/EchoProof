@@ -63,6 +63,17 @@ async function submitQuery(contextId, question) {
   return normalizeQueryResult(data)
 }
 
+async function submitDebugReport(contextId, bugReport) {
+  const res = await fetch(`/api/context/${contextId}/debug`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bugReport }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+  return data
+}
+
 // ── Step list component ──────────────────────────────────────────────────────
 
 const STEPS = [
@@ -248,9 +259,98 @@ function AnswerPanel({ result, onClear }) {
   )
 }
 
+function DebugReportPanel({ report, onClear }) {
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Debugging Report</p>
+          <h2 className="text-xl font-bold text-gray-900">Root-cause investigation</h2>
+        </div>
+        <ConfidenceBadge level={report.confidence} />
+      </div>
+
+      <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
+        <p className="text-xs text-blue-500 font-medium mb-1">Bug report</p>
+        <p className="text-sm text-blue-900 whitespace-pre-line">{report.problem}</p>
+      </div>
+
+      <section>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Root cause</p>
+        <p className="text-sm text-gray-800 leading-relaxed">{report.rootCause}</p>
+        <p className="text-sm text-gray-600 leading-relaxed mt-2">{report.why}</p>
+      </section>
+
+      <section>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Affected files</p>
+        {report.affectedFiles.length ? (
+          <ul className="space-y-1 text-sm text-gray-700">
+            {report.affectedFiles.map((file) => <li key={file} className="font-mono">{file}</li>)}
+          </ul>
+        ) : <p className="text-sm text-gray-500">No affected file was identified with enough confidence.</p>}
+      </section>
+
+      <section className="border-t border-gray-100 pt-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Recommended fix</p>
+        <p className="text-sm font-medium text-gray-800">{report.recommendedFix.summary}</p>
+        <p className="text-sm text-gray-600 leading-relaxed mt-1">{report.recommendedFix.rationale}</p>
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded px-3 py-2 mt-2">
+          Proposal only. No repository changes were applied.
+        </p>
+      </section>
+
+      <section>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Recommended tests</p>
+        <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
+          {report.recommendedTests.map((test) => <li key={test}>{test}</li>)}
+        </ul>
+      </section>
+
+      {report.historicalIncidents.length > 0 && (
+        <section>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Similar historical incidents</p>
+          <ul className="space-y-2">
+            {report.historicalIncidents.map((incident) => (
+              <li key={incident.id} className="border border-gray-200 rounded-lg px-3 py-2">
+                <p className="text-sm font-medium text-gray-800">{incident.title}</p>
+                <p className="text-xs text-gray-500 mt-1">{incident.excerpt}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Evidence</p>
+        <div className="space-y-2">
+          {report.evidence.slice(0, 8).map((item) => (
+            <div key={item.id} className="border border-gray-200 rounded-lg px-3 py-2">
+              <p className="text-sm font-medium text-gray-800">{item.title}</p>
+              <p className="text-xs text-gray-500 mt-1">{item.reference || item.type}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {report.warnings.length > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm rounded-lg px-4 py-3">
+          {report.warnings.join(' ')}
+        </div>
+      )}
+
+      <button
+        onClick={onClear}
+        className="w-full border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium py-2 rounded-lg transition text-sm"
+      >
+        Back to Repository
+      </button>
+    </div>
+  )
+}
+
 // ── Main App ─────────────────────────────────────────────────────────────────
 
-const VIEW = { SETUP: 'setup', INGESTING: 'ingesting', READY: 'ready', ANSWERING: 'answering', ANSWER: 'answer' }
+const VIEW = { SETUP: 'setup', INGESTING: 'ingesting', READY: 'ready', ANSWERING: 'answering', ANSWER: 'answer', DEBUGGING: 'debugging', DEBUG_REPORT: 'debug-report' }
 
 export default function App() {
   const [view, setView] = useState(VIEW.SETUP)
@@ -264,6 +364,9 @@ export default function App() {
   const [question, setQuestion] = useState('')
   const [queryError, setQueryError] = useState('')
   const [queryResult, setQueryResult] = useState(null)
+  const [bugReport, setBugReport] = useState('')
+  const [debugError, setDebugError] = useState('')
+  const [debugResult, setDebugResult] = useState(null)
   const pollRef = useRef(null)
 
   // ── Stop polling on unmount ──
@@ -338,6 +441,23 @@ export default function App() {
     }
   }
 
+  async function handleDebug(e) {
+    e.preventDefault()
+    setDebugError('')
+    const report = bugReport.trim()
+    if (!report) return setDebugError('Please describe the bug.')
+
+    setView(VIEW.DEBUGGING)
+    try {
+      const result = await submitDebugReport(contextId, report)
+      setDebugResult(result)
+      setView(VIEW.DEBUG_REPORT)
+    } catch (err) {
+      setDebugError(err.message)
+      setView(VIEW.READY)
+    }
+  }
+
   // ── Reset to start ──
   function handleReset() {
     clearInterval(pollRef.current)
@@ -351,6 +471,9 @@ export default function App() {
     setQuestion('')
     setQueryError('')
     setQueryResult(null)
+    setBugReport('')
+    setDebugError('')
+    setDebugResult(null)
   }
 
   // ════════════════════════════════════════════════════════
@@ -469,6 +592,28 @@ export default function App() {
     )
   }
 
+  if (view === VIEW.DEBUGGING) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl shadow-md p-10 w-full max-w-lg text-center">
+          <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <h2 className="text-lg font-bold text-gray-900">Building debugging report</h2>
+          <p className="text-gray-400 text-sm mt-1">Inspecting source, history, and similar incidents.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (view === VIEW.DEBUG_REPORT) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
+        <div className="bg-white rounded-2xl shadow-md p-8 w-full max-w-2xl">
+          <DebugReportPanel report={debugResult} onClear={() => { setView(VIEW.READY); setBugReport('') }} />
+        </div>
+      </div>
+    )
+  }
+
   // ════════════════════════════════════════════════════════
   // READY VIEW — repo dashboard + query input
   // ════════════════════════════════════════════════════════
@@ -527,6 +672,32 @@ export default function App() {
             Investigate
           </button>
         </form>
+
+        <div className="border-t border-gray-100 mt-6 pt-6">
+          <form onSubmit={handleDebug} className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700">Investigate a bug</label>
+            <textarea
+              value={bugReport}
+              onChange={(e) => { setBugReport(e.target.value); setDebugError('') }}
+              placeholder="Describe the unexpected behavior, steps to reproduce, and any error message."
+              rows={4}
+              maxLength={5000}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+            />
+            {debugError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+                {debugError}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={!bugReport.trim()}
+              className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white font-semibold py-3 rounded-lg transition"
+            >
+              Generate Debugging Report
+            </button>
+          </form>
+        </div>
 
         <button
           onClick={handleReset}
