@@ -96,6 +96,8 @@ function SourceCard({ source, index }) {
 
 function AnswerPanel({ result, onClear }) {
   const evidence = Array.isArray(result.evidence) ? result.evidence : []
+  const [expandedAgentId, setExpandedAgentId] = useState(null)
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -107,7 +109,7 @@ function AnswerPanel({ result, onClear }) {
       <section><p className="label">Why</p><p className="copy">{result.answer?.why || result.why || 'The evidence did not provide an additional explanation.'}</p></section>
       <section><p className="label">Answer</p><p className="copy whitespace-pre-line">{result.answer?.summary || result.answerText || 'No answer was generated.'}</p></section>
       <Separator />
-      {Array.isArray(result.agents) && result.agents.length > 0 && <section><p className="label mb-3">Specialized agents</p><div className="grid gap-2 sm:grid-cols-2">{result.agents.map((agent) => <div key={agent.id} className="rounded-xl border border-line bg-white px-3 py-3"><div className="flex justify-between gap-2"><p className="text-xs font-bold text-ink">{agent.label}</p><span className="text-[10px] uppercase text-muted">{agent.status}</span></div><p className="mt-1 text-xs leading-5 text-muted">{agent.summary}</p></div>)}</div></section>}
+      {Array.isArray(result.agents) && result.agents.length > 0 && <section><p className="label mb-3">Specialized agents</p><div className="grid gap-2 sm:grid-cols-2">{result.agents.map((agent) => { const isExpanded = expandedAgentId === agent.id; return <div key={agent.id} className="border border-line bg-white"><button type="button" aria-expanded={isExpanded} onClick={() => setExpandedAgentId(isExpanded ? null : agent.id)} className="flex min-h-12 w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-surface"><span className="text-xs font-bold text-ink">{agent.label}</span><span className="flex items-center gap-2"><span className="text-[10px] uppercase text-muted">{agent.status}</span><span className="font-mono text-sm text-accent" aria-hidden="true">{isExpanded ? '−' : '+'}</span></span></button>{isExpanded && <div className="border-t border-line px-3 py-3 text-xs leading-5 text-muted">{agent.summary}{agent.warnings?.length > 0 && <p className="mt-2 text-accent">{agent.warnings.join(' ')}</p>}</div>}</div> })}</div></section>}
       {evidence.length > 0 && <section><p className="label mb-3">Evidence · {evidence.length} sources</p><div className="space-y-2">{evidence.map((source, index) => <SourceCard key={source.id || index} source={source} index={index} />)}</div></section>}
       <Button variant="outline" onClick={onClear} className="w-full">Ask another question</Button>
     </div>
