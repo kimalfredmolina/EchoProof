@@ -8,7 +8,7 @@ const incidentRoutes = require('./routes/incident.routes');
 
 const app = express();
 
-app.use(cors({ origin: env.FRONTEND_URL }));
+app.use(cors({ origin: env.FRONTEND_URLS }));
 app.use(express.json());
 
 // Health check
