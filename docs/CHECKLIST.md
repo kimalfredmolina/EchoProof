@@ -13,7 +13,7 @@
 | Phase 2 — GitHub Ingestion | ✅ Complete | 8 / 8 |
 | Phase 3 — Knowledge Indexing | ⬜ Not Started | 0 / 6 |
 | Phase 4 — AI Query Engine | ✅ Complete | 6 / 6 |
-| Phase 5 — Multi-Agent Investigation | ⬜ Not Started | 0 / 6 |
+| Phase 5 — Multi-Agent Investigation | ✅ Complete | 8 / 8 |
 | Phase 6 — Debugging Workflow | ⬜ Not Started | 0 / 7 |
 | Phase 7 — Incident Memory | ⬜ Not Started | 0 / 5 |
 | Phase 8 — Frontend Polish | 🟡 In Progress | 1 / 10 |
@@ -84,14 +84,16 @@
 
 > Goal: One user question triggers multiple specialized investigations and combines their results.
 
-- [ ] Create Orchestrator Agent (delegates to sub-agents, collects results, synthesizes final answer)
-- [ ] Create Code Investigation Agent (relevant files, execution paths, code relationships)
-- [ ] Create Git History Agent (commits, change timeline, related commits)
-- [ ] Create Pull Request Agent (PR search, discussion analysis, motivation extraction)
-- [ ] Create Documentation Agent (README, ADR, design doc analysis)
-- [ ] Create Historical Incident Agent (searches saved incidents for similar bugs)
-- [ ] Implement parallel agent execution (`Promise.all` or equivalent)
-- [ ] Merge and deduplicate evidence from all agents before synthesis
+- [x] Create Orchestrator Agent (delegates to sub-agents, collects results, synthesizes final answer)
+- [x] Create Code Investigation Agent (relevant files, execution paths, code relationships)
+- [x] Create Git History Agent (commits, change timeline, related commits)
+- [x] Create Pull Request Agent (PR search, discussion analysis, motivation extraction)
+- [x] Create Documentation Agent (README, ADR, design doc analysis)
+- [x] Create Historical Incident Agent (searches saved incidents for similar bugs)
+- [x] Implement parallel agent execution (`Promise.all` or equivalent)
+- [x] Merge and deduplicate evidence from all agents before synthesis
+
+> **Private repository support:** configure a token with access to the repository and add its exact `owner/repo` slug to `PRIVATE_REPOSITORY_ALLOWLIST`. The Phase 4 query endpoint and all Phase 5 agents share this policy and one rate-limited query pipeline.
 
 ---
 

@@ -1,6 +1,7 @@
 const SystemContext = require('../models/SystemContext');
 const Document = require('../models/Document');
 const { fetchRepoMetadata, fetchPullRequests, fetchCommits, fetchMarkdownDocs } = require('./github.service');
+const { assertRepositoryAccess } = require('./repository-access.service');
 
 /**
  * Update the ingestion progress fields on a SystemContext document.
@@ -166,7 +167,9 @@ async function runIngestion(contextId, owner, repo) {
     await SystemContext.findByIdAndUpdate(contextId, {
       name: meta.fullName,
       description: meta.description,
+      repositoryVisibility: meta.private ? 'private' : 'public',
     });
+    assertRepositoryAccess({ owner, repository: repo, isPrivate: meta.private });
     lastSuccessfulStep = 'Fetching repository metadata';
 
     // Step 2 (30%): ingest PRs

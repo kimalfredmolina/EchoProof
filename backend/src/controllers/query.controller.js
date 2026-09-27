@@ -1,37 +1,44 @@
+const mongoose = require('mongoose');
 const SystemContext = require('../models/SystemContext');
+const { isPrivateRepositoryAllowed } = require('../services/repository-access.service');
 const { runQuery } = require('../services/query.service');
 
-/**
- * POST /api/context/:id/query
- * Body: { "question": "..." }
- *
- * Runs the full Phase 4 pipeline against the indexed repository documents
- * and returns a structured answer with evidence and confidence.
- */
-async function queryContext(req, res) {
-  const { question } = req.body;
+const MAX_QUESTION_LENGTH = 2000;
 
-  if (!question || typeof question !== 'string' || !question.trim()) {
+async function queryContext(req, res) {
+  const question = typeof req.body?.question === 'string' ? req.body.question.trim() : '';
+
+  if (!question) {
     return res.status(400).json({ error: 'question is required' });
   }
-
-  // Verify the context exists and is ready
-  const context = await SystemContext.findById(req.params.id).select('status').lean();
-  if (!context) {
-    return res.status(404).json({ error: 'Context not found' });
+  if (question.length > MAX_QUESTION_LENGTH) {
+    return res.status(400).json({
+      error: `question must be ${MAX_QUESTION_LENGTH} characters or fewer`,
+    });
   }
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ error: 'Context ID is invalid' });
+  }
+
+  const context = await SystemContext.findById(req.params.id).lean();
+  if (!context) return res.status(404).json({ error: 'Context not found' });
   if (context.status !== 'ready') {
     return res.status(409).json({
-      error: `Repository is not ready for queries. Current status: ${context.status}`,
+      error: 'Context is not ready for investigation',
+      status: context.status,
+    });
+  }
+  if (
+    context.repositoryVisibility === 'private'
+    && !isPrivateRepositoryAllowed(context.owner, context.repository)
+  ) {
+    return res.status(403).json({
+      error: 'Private repository is not allowed by this server',
     });
   }
 
-  const result = await runQuery(req.params.id, question.trim());
-
-  return res.json({
-    question: question.trim(),
-    ...result,
-  });
+  const investigation = await runQuery(context, question);
+  return res.json(investigation);
 }
 
 module.exports = { queryContext };
