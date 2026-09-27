@@ -166,7 +166,11 @@ async function runIngestion(contextId, owner, repo) {
     await SystemContext.findByIdAndUpdate(contextId, {
       name: meta.fullName,
       description: meta.description,
+      repositoryVisibility: meta.private ? 'private' : 'public',
     });
+    if (meta.private) {
+      throw new Error('Private repositories are not supported until user authentication is available');
+    }
     lastSuccessfulStep = 'Fetching repository metadata';
 
     // Step 2 (30%): ingest PRs

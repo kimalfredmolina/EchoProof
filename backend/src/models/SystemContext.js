@@ -19,6 +19,12 @@ const systemContextSchema = new mongoose.Schema(
     name: { type: String, default: '' },
     description: { type: String, default: '' },
 
+    repositoryVisibility: {
+      type: String,
+      enum: ['public', 'private', 'unknown'],
+      default: 'unknown',
+    },
+
     status: {
       type: String,
       enum: ['pending', 'indexing', 'ready', 'failed'],
