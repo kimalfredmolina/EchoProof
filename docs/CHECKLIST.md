@@ -15,7 +15,7 @@
 | Phase 4 — AI Query Engine | ✅ Complete | 6 / 6 |
 | Phase 5 — Multi-Agent Investigation | ✅ Complete | 8 / 8 |
 | Phase 6 — Debugging Workflow | ⬜ Not Started | 0 / 7 |
-| Phase 7 — Incident Memory | ⬜ Not Started | 0 / 5 |
+| Phase 7 — Incident Memory | ✅ Complete | 5 / 5 |
 | Phase 8 — Frontend Polish | 🟡 In Progress | 1 / 10 |
 | Phase 9 — Demo Preparation | ⬜ Not Started | 0 / 7 |
 
@@ -115,12 +115,12 @@
 
 > Goal: A previously solved issue can influence a future investigation.
 
-- [ ] Implement `POST /api/context/:id/incidents` — save investigation as incident
-- [ ] Implement `GET /api/context/:id/incidents` — list saved incidents
-- [ ] Implement `GET /api/context/:id/incidents/:incidentId` — get single incident
-- [ ] Generate and store embedding for each saved incident
-- [ ] Wire Historical Incident Agent to search incident embeddings during future investigations
-- [ ] Surface similar past incidents (title, ID, similarity rating, previous root cause, previous resolution) in investigation results
+- [x] Implement `POST /api/context/:id/incidents` — save investigation as incident
+- [x] Implement `GET /api/context/:id/incidents` — list saved incidents
+- [x] Implement `GET /api/context/:id/incidents/:incidentId` — get single incident
+- [x] Generate and store embedding for each saved incident
+- [x] Wire Historical Incident Agent to search incident embeddings during future investigations
+- [x] Surface similar past incidents (title, ID, similarity rating, previous root cause, previous resolution) in investigation results
 
 ---
 
