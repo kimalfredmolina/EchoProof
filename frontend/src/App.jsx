@@ -27,6 +27,31 @@ async function fetchContext(contextId) {
   return data
 }
 
+function normalizeQueryResult(data) {
+  const nestedAnswer = data.answer && typeof data.answer === 'object' ? data.answer : null
+  const evidence = Array.isArray(data.evidence) ? data.evidence : []
+  const sources = evidence.length > 0
+    ? evidence.map((item) => ({
+        id: item.id,
+        type: item.type,
+        title: item.title,
+        url: item.url,
+        reference: item.reference || '',
+        excerpt: item.excerpt || '',
+        author: item.metadata?.author || '',
+      }))
+    : Array.isArray(data.sources) ? data.sources : []
+
+  return {
+    ...data,
+    rootCause: nestedAnswer?.rootCause ?? data.rootCause ?? null,
+    why: nestedAnswer?.why ?? data.why ?? null,
+    answerText: nestedAnswer?.summary
+      ?? (typeof data.answer === 'string' ? data.answer : 'No answer was generated.'),
+    sources,
+  }
+}
+
 async function submitQuery(contextId, question) {
   const res = await fetch(`/api/context/${contextId}/query`, {
     method: 'POST',
@@ -35,7 +60,7 @@ async function submitQuery(contextId, question) {
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
-  return data
+  return normalizeQueryResult(data)
 }
 
 // ── Step list component ──────────────────────────────────────────────────────
@@ -99,6 +124,7 @@ const TYPE_LABELS = {
   adr: 'ADR',
   design_document: 'Doc',
   readme: 'README',
+  source_code: 'Code',
   incident: 'Incident',
 }
 
@@ -121,7 +147,10 @@ function SourceCard({ source, index }) {
         </p>
       )}
       {source.reference && (
-        <p className="mt-1 text-xs text-gray-500">{source.reference}</p>
+        <p className="mt-1 text-xs font-medium text-gray-600">{source.reference}</p>
+      )}
+      {source.excerpt && (
+        <p className="mt-1 text-xs text-gray-500 leading-relaxed">{source.excerpt}</p>
       )}
       {source.url && (
         <a
@@ -173,8 +202,28 @@ function AnswerPanel({ result, onClear }) {
       {/* Answer */}
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Answer</p>
-        <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-line">{result.answer}</p>
+        <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-line">{result.answerText}</p>
       </div>
+
+      {/* Agent results */}
+      {Array.isArray(result.agents) && result.agents.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            Specialized Agents
+          </p>
+          <div className="space-y-2">
+            {result.agents.map((agent) => (
+              <div key={agent.id} className="border border-gray-200 rounded-lg px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-gray-800">{agent.label}</p>
+                  <span className="text-xs text-gray-500 capitalize">{agent.status.replace('_', ' ')}</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">{agent.summary}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Sources */}
       {result.sources && result.sources.length > 0 && (

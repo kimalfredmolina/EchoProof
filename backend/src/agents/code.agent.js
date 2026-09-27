@@ -71,16 +71,6 @@ async function investigateCode({ context, question }) {
   });
   const candidatePaths = extractChangedFiles(relatedHistory);
 
-  if (context.repositoryVisibility !== 'public') {
-    return {
-      summary: indexedCode.length
-        ? `Found ${indexedCode.length} relevant indexed source file${indexedCode.length === 1 ? '' : 's'}; live inspection is disabled for non-public repositories.`
-        : 'Live source inspection is disabled because this context is not verified public.',
-      evidence: indexedCode,
-      warnings: ['Live source inspection requires a verified public repository.'],
-    };
-  }
-
   try {
     const result = await fetchRelevantSourceFiles(context.owner, context.repository, {
       question,

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const SystemContext = require('../models/SystemContext');
-const { runInvestigation } = require('../agents/orchestrator.agent');
+const { isPrivateRepositoryAllowed } = require('../services/repository-access.service');
+const { runQuery } = require('../services/query.service');
 
 const MAX_QUESTION_LENGTH = 2000;
 
@@ -27,13 +28,16 @@ async function queryContext(req, res) {
       status: context.status,
     });
   }
-  if (context.repositoryVisibility !== 'public') {
+  if (
+    context.repositoryVisibility === 'private'
+    && !isPrivateRepositoryAllowed(context.owner, context.repository)
+  ) {
     return res.status(403).json({
-      error: 'Only verified public repositories can be queried in this unauthenticated deployment',
+      error: 'Private repository is not allowed by this server',
     });
   }
 
-  const investigation = await runInvestigation({ context, question });
+  const investigation = await runQuery(context, question);
   return res.json(investigation);
 }
 

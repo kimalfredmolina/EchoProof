@@ -1,6 +1,7 @@
 const path = require('path');
 const { Octokit } = require('@octokit/rest');
 const { env } = require('../config/environment');
+const { assertRepositoryAccess } = require('./repository-access.service');
 
 /**
  * Returns a configured Octokit instance.
@@ -227,7 +228,7 @@ async function fetchRelevantSourceFiles(owner, repo, options = {}) {
   const { question = '', candidatePaths = [], limit = 8 } = options;
   const octokit = createOctokit();
   const metadata = await fetchRepoMetadata(owner, repo);
-  if (metadata.private) throw new Error('Private repository source inspection is disabled');
+  assertRepositoryAccess({ owner, repository: repo, isPrivate: metadata.private });
 
   const { data: treeData } = await octokit.git.getTree({
     owner,

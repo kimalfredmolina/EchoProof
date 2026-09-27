@@ -1,5 +1,11 @@
 const SystemContext = require('../models/SystemContext');
 const { runIngestion } = require('../services/ingestion.service');
+const { isPrivateRepositoryAllowed } = require('../services/repository-access.service');
+
+function canAccessContext(context) {
+  return context.repositoryVisibility !== 'private'
+    || isPrivateRepositoryAllowed(context.owner, context.repository);
+}
 
 // POST /api/context — create a new system context and start background ingestion
 async function createContext(req, res) {
@@ -39,15 +45,21 @@ async function createContext(req, res) {
 async function getContext(req, res) {
   const context = await SystemContext.findById(req.params.id);
   if (!context) return res.status(404).json({ error: 'Context not found' });
+  if (!canAccessContext(context)) {
+    return res.status(403).json({ error: 'Private repository is not allowed by this server' });
+  }
   return res.json(context);
 }
 
 // GET /api/context/:id/status — get ingestion status and progress
 async function getContextStatus(req, res) {
   const context = await SystemContext.findById(req.params.id).select(
-    'status ingestionProgress'
+    'owner repository repositoryVisibility status ingestionProgress'
   );
   if (!context) return res.status(404).json({ error: 'Context not found' });
+  if (!canAccessContext(context)) {
+    return res.status(403).json({ error: 'Private repository is not allowed by this server' });
+  }
 
   return res.json({
     status: context.status,

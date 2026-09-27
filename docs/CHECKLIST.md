@@ -93,6 +93,8 @@
 - [x] Implement parallel agent execution (`Promise.all` or equivalent)
 - [x] Merge and deduplicate evidence from all agents before synthesis
 
+> **Private repository support:** configure a token with access to the repository and add its exact `owner/repo` slug to `PRIVATE_REPOSITORY_ALLOWLIST`. The Phase 4 query endpoint and all Phase 5 agents share this policy and one rate-limited query pipeline.
+
 ---
 
 ## Phase 6 — Debugging Workflow

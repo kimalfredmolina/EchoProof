@@ -115,11 +115,9 @@ async function synthesizeInvestigation({
   evidence,
   agentResults,
   confidence,
-  repositoryVisibility,
 }) {
   const fallback = deterministicSynthesis({ evidence, agentResults, confidence });
-  const externalSynthesisAllowed = env.ALLOW_EXTERNAL_SYNTHESIS
-    && repositoryVisibility === 'public';
+  const externalSynthesisAllowed = env.ALLOW_EXTERNAL_SYNTHESIS;
   if (!evidence.length || !env.OPENAI_API_KEY || !externalSynthesisAllowed) return fallback;
 
   try {

@@ -104,7 +104,7 @@ Invoke-RestMethod -Method POST `
   -Body '{"question":"Why was authentication changed?"}'
 ```
 
-The response contains every agent's status and summary, merged/deduplicated evidence, confidence, and an evidence-grounded answer. Querying is limited to repositories verified as public; existing contexts created before this field was introduced should be re-ingested. Retrieval falls back to lexical matching while Phase 3 is unfinished. External OpenAI synthesis is opt-in (`ALLOW_EXTERNAL_SYNTHESIS=true`); otherwise EchoProof returns an honest evidence-only summary.
+The response contains every agent's status and summary, merged/deduplicated evidence, confidence, and an evidence-grounded answer. Public repositories work normally. Private repositories require a `GITHUB_TOKEN` that can read the repository and an exact `owner/repo` entry in `PRIVATE_REPOSITORY_ALLOWLIST`; comma-separate multiple repositories or use `*` only in a trusted local deployment. Retrieval currently falls back to lexical matching because the Phase 3 indexing pipeline is not present in this checkout. External OpenAI synthesis is opt-in with `ALLOW_EXTERNAL_SYNTHESIS=true`; enabling it authorizes sending retrieved public or private evidence to OpenAI. With it disabled, EchoProof returns a local evidence-only summary.
 
 Or just use the UI at **http://localhost:5173** — paste the repo URL and click **Analyze Repository**.
 
@@ -139,8 +139,11 @@ EchoProof-AI-Decision-Memory/
 |---|---|
 | `PORT` | Backend port (default `5000`) |
 | `MONGODB_URI` | MongoDB Atlas connection string |
-| `GITHUB_TOKEN` | GitHub Personal Access Token (`repo` scope) |
-| `OPENAI_API_KEY` | OpenAI API key (for embeddings — Phase 3+) |
+| `GITHUB_TOKEN` | GitHub token with access to repositories being ingested |
+| `PRIVATE_REPOSITORY_ALLOWLIST` | Comma-separated private `owner/repo` values (`*` only for trusted local use) |
+| `OPENAI_API_KEY` | OpenAI API key for optional grounded synthesis and future embeddings |
+| `ALLOW_EXTERNAL_SYNTHESIS` | Set `true` to permit public or private evidence to be sent to OpenAI |
+| `GROQ_API_KEY` | Groq API key retained for Groq-based integrations |
 | `FRONTEND_URL` | Frontend URL for CORS (default `http://localhost:5173`) |
 
 ---
@@ -164,8 +167,8 @@ Feature branches follow the pattern `feat/<feature-name>` and are merged into `d
 | Phase 1 — Foundation | ✅ Complete |
 | Phase 2 — GitHub Ingestion | ✅ Complete |
 | Phase 3 — Knowledge Indexing | ⬜ Not Started |
-| Phase 4 — AI Query Engine | ⬜ Not Started |
-| Phase 5 — Multi-Agent Investigation | ⬜ Not Started |
+| Phase 4 — AI Query Engine | ✅ Complete |
+| Phase 5 — Multi-Agent Investigation | ✅ Complete |
 | Phase 6 — Debugging Workflow | ⬜ Not Started |
 | Phase 7 — Incident Memory | ⬜ Not Started |
 | Phase 8 — Frontend Polish | 🟡 In Progress |

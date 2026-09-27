@@ -81,7 +81,6 @@ async function runInvestigation({ context, question }) {
     evidence,
     agentResults,
     confidence,
-    repositoryVisibility: context.repositoryVisibility,
   });
   const warnings = [...new Set([
     ...agentResults.flatMap((agent) => agent.warnings),
