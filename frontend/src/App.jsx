@@ -124,7 +124,6 @@ const TYPE_LABELS = {
   adr: 'ADR',
   design_document: 'Doc',
   readme: 'README',
-  source_code: 'Code',
   incident: 'Incident',
 }
 
