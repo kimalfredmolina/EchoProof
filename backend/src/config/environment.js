@@ -14,7 +14,7 @@ const env = {
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
 };
 
-const required = ['MONGODB_URI', 'GITHUB_TOKEN', 'OPENAI_API_KEY'];
+const required = ['MONGODB_URI', 'GITHUB_TOKEN', 'GROQ_API_KEY'];
 
 function validateEnv() {
   const missing = required.filter((key) => !env[key]);

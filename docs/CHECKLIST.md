@@ -12,7 +12,7 @@
 | Phase 1 — Foundation | ✅ Complete | 7 / 7 |
 | Phase 2 — GitHub Ingestion | ✅ Complete | 8 / 8 |
 | Phase 3 — Knowledge Indexing | ⬜ Not Started | 0 / 6 |
-| Phase 4 — AI Query Engine | ⬜ Not Started | 0 / 6 |
+| Phase 4 — AI Query Engine | ✅ Complete | 6 / 6 |
 | Phase 5 — Multi-Agent Investigation | ✅ Complete | 8 / 8 |
 | Phase 6 — Debugging Workflow | ⬜ Not Started | 0 / 7 |
 | Phase 7 — Incident Memory | ⬜ Not Started | 0 / 5 |
@@ -71,12 +71,12 @@
 
 > Goal: EchoProof can answer questions about repository history and explain its evidence.
 
-- [ ] Implement `POST /api/context/:id/query` endpoint
-- [ ] Build question-analysis prompt (extract intent and key terms)
-- [ ] Implement parallel retrieval across all document types (PRs, commits, ADRs, docs, incidents)
-- [ ] Implement evidence ranking (score and sort retrieved chunks by relevance)
-- [ ] Implement LLM answer synthesis with source references
-- [ ] Handle insufficient-evidence case (return honest "not enough evidence" response)
+- [x] Implement `POST /api/context/:id/query` endpoint
+- [x] Build question-analysis prompt (extract intent and key terms)
+- [x] Implement parallel retrieval across all document types (PRs, commits, ADRs, docs, incidents)
+- [x] Implement evidence ranking (score and sort retrieved chunks by relevance)
+- [x] Implement LLM answer synthesis with source references
+- [x] Handle insufficient-evidence case (return honest "not enough evidence" response)
 
 ---
 
