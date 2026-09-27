@@ -1,108 +1,70 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Badge } from './components/ui/badge'
+import { Button } from './components/ui/button'
+import { Card, CardContent } from './components/ui/card'
+import { Input } from './components/ui/input'
+import { Separator } from './components/ui/separator'
+import { Textarea } from './components/ui/textarea'
 
-// ── API helpers ──────────────────────────────────────────────────────────────
+async function requestJson(url, options) {
+  const response = await fetch(url, options)
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`)
+  return data
+}
 
-async function startIngestion(repoUrl) {
-  const res = await fetch('/api/context', {
+function startIngestion(repoUrl) {
+  return requestJson('/api/context', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ repoUrl }),
   })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
-  return data // { contextId, status }
 }
 
-async function fetchStatus(contextId) {
-  const res = await fetch(`/api/context/${contextId}/status`)
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
-  return data
+function fetchStatus(contextId) {
+  return requestJson(`/api/context/${contextId}/status`)
 }
 
-async function fetchContext(contextId) {
-  const res = await fetch(`/api/context/${contextId}`)
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
-  return data
+function fetchContext(contextId) {
+  return requestJson(`/api/context/${contextId}`)
 }
 
-function normalizeQueryResult(data) {
-  const nestedAnswer = data.answer && typeof data.answer === 'object' ? data.answer : null
-  const evidence = Array.isArray(data.evidence) ? data.evidence : []
-  const sources = evidence.length > 0
-    ? evidence.map((item) => ({
-        id: item.id,
-        type: item.type,
-        title: item.title,
-        url: item.url,
-        reference: item.reference || '',
-        excerpt: item.excerpt || '',
-        author: item.metadata?.author || '',
-      }))
-    : Array.isArray(data.sources) ? data.sources : []
-
-  return {
-    ...data,
-    rootCause: nestedAnswer?.rootCause ?? data.rootCause ?? null,
-    why: nestedAnswer?.why ?? data.why ?? null,
-    answerText: nestedAnswer?.summary
-      ?? (typeof data.answer === 'string' ? data.answer : 'No answer was generated.'),
-    sources,
-  }
-}
-
-async function submitQuery(contextId, question) {
-  const res = await fetch(`/api/context/${contextId}/query`, {
+function submitQuery(contextId, question) {
+  return requestJson(`/api/context/${contextId}/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ question }),
   })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
-  return normalizeQueryResult(data)
 }
 
-async function submitDebugReport(contextId, bugReport) {
-  const res = await fetch(`/api/context/${contextId}/debug`, {
+function submitDebugReport(contextId, bugReport) {
+  return requestJson(`/api/context/${contextId}/debug`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ bugReport }),
   })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
-  return data
 }
 
-// ── Step list component ──────────────────────────────────────────────────────
+const STEPS = ['Fetching repository metadata', 'Fetching pull requests', 'Fetching commits', 'Fetching documentation', 'Complete']
+const TYPE_LABELS = { pull_request: 'PR', commit: 'Commit', adr: 'ADR', design_document: 'Doc', readme: 'README', incident: 'Incident', source_code: 'Code' }
 
-const STEPS = [
-  'Fetching repository metadata',
-  'Fetching pull requests',
-  'Fetching commits',
-  'Fetching documentation',
-  'Complete',
-]
+function BrandMark() {
+  return null
+}
 
 function StepList({ currentStep, status }) {
+  const stepIndex = STEPS.indexOf(currentStep)
   return (
-    <ol className="text-left space-y-2 mt-4">
-      {STEPS.map((step, i) => {
-        const stepIndex = STEPS.indexOf(currentStep)
-        const isDone =
-          status === 'ready' || i < stepIndex || currentStep === 'Complete'
-        const isActive = step === currentStep && status === 'indexing'
+    <ol className="mt-6 space-y-3">
+      {STEPS.map((step, index) => {
+        const done = status === 'ready' || index < stepIndex || currentStep === 'Complete'
+        const active = step === currentStep && status === 'indexing'
         return (
           <li key={step} className="flex items-center gap-3 text-sm">
-            <span
-              className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold
-                ${isDone ? 'bg-green-500 text-white' : isActive ? 'bg-blue-500 text-white animate-pulse' : 'bg-gray-200 text-gray-400'}`}
-            >
-              {isDone ? '✓' : i + 1}
+            <span className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-xs font-bold ${done ? 'bg-mint text-mint-ink' : active ? 'animate-pulse bg-blue text-white' : 'bg-surface text-muted'}`}>
+              {done ? '✓' : index + 1}
             </span>
-            <span className={isDone ? 'text-gray-700' : isActive ? 'text-blue-700 font-medium' : 'text-gray-400'}>
-              {step}
-            </span>
+            <span className={done ? 'text-ink' : active ? 'font-semibold text-blue-deep' : 'text-muted'}>{step}</span>
           </li>
         )
       })}
@@ -110,245 +72,64 @@ function StepList({ currentStep, status }) {
   )
 }
 
-// ── Confidence badge ─────────────────────────────────────────────────────────
-
 function ConfidenceBadge({ level }) {
-  const styles = {
-    high: 'bg-green-100 text-green-700 border-green-200',
-    medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    low: 'bg-red-100 text-red-700 border-red-200',
-  }
-  const labels = { high: 'High Confidence', medium: 'Medium Confidence', low: 'Low Confidence' }
-  const cls = styles[level] || styles.low
-  return (
-    <span className={`inline-block border rounded-full px-3 py-0.5 text-xs font-semibold ${cls}`}>
-      {labels[level] || 'Low Confidence'}
-    </span>
-  )
-}
-
-// ── Source card ──────────────────────────────────────────────────────────────
-
-const TYPE_LABELS = {
-  pull_request: 'PR',
-  commit: 'Commit',
-  adr: 'ADR',
-  design_document: 'Doc',
-  readme: 'README',
-  incident: 'Incident',
+  const variant = { high: 'success', medium: 'warning', low: 'danger' }[level] || 'danger'
+  return <Badge variant={variant}>{level || 'low'} confidence</Badge>
 }
 
 function SourceCard({ source, index }) {
-  const label = TYPE_LABELS[source.type] || source.type
   return (
-    <div className="border border-gray-200 rounded-lg px-4 py-3 bg-gray-50">
+    <div className="rounded-xl border border-line bg-surface/60 px-4 py-3">
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="shrink-0 text-xs font-semibold bg-blue-100 text-blue-700 rounded px-1.5 py-0.5">
-            {label}
-          </span>
-          <span className="text-sm font-medium text-gray-800 truncate">{source.title}</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <Badge variant="blue" className="shrink-0">{TYPE_LABELS[source.type] || source.type}</Badge>
+          <span className="truncate text-sm font-semibold text-ink">{source.title}</span>
         </div>
-        <span className="shrink-0 text-xs text-gray-400">#{index + 1}</span>
+        <span className="shrink-0 text-xs text-muted">#{index + 1}</span>
       </div>
-      {source.author && (
-        <p className="mt-1 text-xs text-gray-500">
-          <span className="font-medium text-gray-600">Author:</span> {source.author}
-        </p>
-      )}
-      {source.reference && (
-        <p className="mt-1 text-xs font-medium text-gray-600">{source.reference}</p>
-      )}
-      {source.excerpt && (
-        <p className="mt-1 text-xs text-gray-500 leading-relaxed">{source.excerpt}</p>
-      )}
-      {source.url && (
-        <a
-          href={source.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-1 inline-block text-xs text-blue-600 hover:underline truncate max-w-full"
-        >
-          {source.url}
-        </a>
-      )}
+      {source.reference && <p className="mt-2 font-mono text-xs text-muted">{source.reference}</p>}
+      {source.excerpt && <p className="mt-1 text-xs leading-relaxed text-muted">{source.excerpt}</p>}
+      {source.url && <a href={source.url} target="_blank" rel="noreferrer" className="mt-2 inline-block max-w-full truncate text-xs text-blue-deep hover:underline">Open source ↗</a>}
     </div>
   )
 }
 
-// ── Answer panel ─────────────────────────────────────────────────────────────
-
 function AnswerPanel({ result, onClear }) {
+  const evidence = Array.isArray(result.evidence) ? result.evidence : []
   return (
-    <div className="space-y-5">
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-bold text-gray-900">Investigation Result</h3>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div><Badge variant="blue">Investigation result</Badge><h2 className="mt-3 font-display text-2xl font-bold tracking-[-0.04em] text-ink">What the repository says</h2></div>
         <ConfidenceBadge level={result.confidence} />
       </div>
-
-      {/* Question echo */}
-      <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
-        <p className="text-xs text-blue-500 font-medium mb-0.5">Question</p>
-        <p className="text-sm text-blue-900">{result.question}</p>
-      </div>
-
-      {/* Root cause */}
-      {result.rootCause && (
-        <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Root Cause</p>
-          <p className="text-sm text-gray-800 leading-relaxed">{result.rootCause}</p>
-        </div>
-      )}
-
-      {/* Why */}
-      {result.why && (
-        <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Why</p>
-          <p className="text-sm text-gray-800 leading-relaxed">{result.why}</p>
-        </div>
-      )}
-
-      {/* Answer */}
-      <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Answer</p>
-        <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-line">{result.answerText}</p>
-      </div>
-
-      {/* Agent results */}
-      {Array.isArray(result.agents) && result.agents.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Specialized Agents
-          </p>
-          <div className="space-y-2">
-            {result.agents.map((agent) => (
-              <div key={agent.id} className="border border-gray-200 rounded-lg px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-gray-800">{agent.label}</p>
-                  <span className="text-xs text-gray-500 capitalize">{agent.status.replace('_', ' ')}</span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1 leading-relaxed">{agent.summary}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Sources */}
-      {result.sources && result.sources.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Evidence ({result.sources.length} source{result.sources.length !== 1 ? 's' : ''})
-          </p>
-          <div className="space-y-2">
-            {result.sources.map((src, i) => (
-              <SourceCard key={i} source={src} index={i} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      <button
-        onClick={onClear}
-        className="w-full border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium py-2 rounded-lg transition text-sm"
-      >
-        Ask Another Question
-      </button>
+      <div className="rounded-xl border border-blue-line bg-blue-wash px-4 py-3"><p className="text-xs font-bold uppercase tracking-[0.1em] text-blue-deep">Question</p><p className="mt-1 text-sm text-ink">{result.question}</p></div>
+      <section><p className="label">Root cause</p><p className="copy">{result.answer?.rootCause || result.rootCause || 'No root cause was generated.'}</p></section>
+      <section><p className="label">Why</p><p className="copy">{result.answer?.why || result.why || 'The evidence did not provide an additional explanation.'}</p></section>
+      <section><p className="label">Answer</p><p className="copy whitespace-pre-line">{result.answer?.summary || result.answerText || 'No answer was generated.'}</p></section>
+      <Separator />
+      {Array.isArray(result.agents) && result.agents.length > 0 && <section><p className="label mb-3">Specialized agents</p><div className="grid gap-2 sm:grid-cols-2">{result.agents.map((agent) => <div key={agent.id} className="rounded-xl border border-line bg-white px-3 py-3"><div className="flex justify-between gap-2"><p className="text-xs font-bold text-ink">{agent.label}</p><span className="text-[10px] uppercase text-muted">{agent.status}</span></div><p className="mt-1 text-xs leading-5 text-muted">{agent.summary}</p></div>)}</div></section>}
+      {evidence.length > 0 && <section><p className="label mb-3">Evidence · {evidence.length} sources</p><div className="space-y-2">{evidence.map((source, index) => <SourceCard key={source.id || index} source={source} index={index} />)}</div></section>}
+      <Button variant="outline" onClick={onClear} className="w-full">Ask another question</Button>
     </div>
   )
 }
 
 function DebugReportPanel({ report, onClear }) {
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Debugging Report</p>
-          <h2 className="text-xl font-bold text-gray-900">Root-cause investigation</h2>
-        </div>
-        <ConfidenceBadge level={report.confidence} />
-      </div>
-
-      <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
-        <p className="text-xs text-blue-500 font-medium mb-1">Bug report</p>
-        <p className="text-sm text-blue-900 whitespace-pre-line">{report.problem}</p>
-      </div>
-
-      <section>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Root cause</p>
-        <p className="text-sm text-gray-800 leading-relaxed">{report.rootCause}</p>
-        <p className="text-sm text-gray-600 leading-relaxed mt-2">{report.why}</p>
-      </section>
-
-      <section>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Affected files</p>
-        {report.affectedFiles.length ? (
-          <ul className="space-y-1 text-sm text-gray-700">
-            {report.affectedFiles.map((file) => <li key={file} className="font-mono">{file}</li>)}
-          </ul>
-        ) : <p className="text-sm text-gray-500">No affected file was identified with enough confidence.</p>}
-      </section>
-
-      <section className="border-t border-gray-100 pt-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Recommended fix</p>
-        <p className="text-sm font-medium text-gray-800">{report.recommendedFix.summary}</p>
-        <p className="text-sm text-gray-600 leading-relaxed mt-1">{report.recommendedFix.rationale}</p>
-        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded px-3 py-2 mt-2">
-          Proposal only. No repository changes were applied.
-        </p>
-      </section>
-
-      <section>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Recommended tests</p>
-        <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
-          {report.recommendedTests.map((test) => <li key={test}>{test}</li>)}
-        </ul>
-      </section>
-
-      {report.historicalIncidents.length > 0 && (
-        <section>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Similar historical incidents</p>
-          <ul className="space-y-2">
-            {report.historicalIncidents.map((incident) => (
-              <li key={incident.id} className="border border-gray-200 rounded-lg px-3 py-2">
-                <p className="text-sm font-medium text-gray-800">{incident.title}</p>
-                <p className="text-xs text-gray-500 mt-1">{incident.excerpt}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Evidence</p>
-        <div className="space-y-2">
-          {report.evidence.slice(0, 8).map((item) => (
-            <div key={item.id} className="border border-gray-200 rounded-lg px-3 py-2">
-              <p className="text-sm font-medium text-gray-800">{item.title}</p>
-              <p className="text-xs text-gray-500 mt-1">{item.reference || item.type}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {report.warnings.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm rounded-lg px-4 py-3">
-          {report.warnings.join(' ')}
-        </div>
-      )}
-
-      <button
-        onClick={onClear}
-        className="w-full border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium py-2 rounded-lg transition text-sm"
-      >
-        Back to Repository
-      </button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3"><div><Badge variant="danger">Debugging report</Badge><h2 className="mt-3 font-display text-2xl font-bold tracking-[-0.04em] text-ink">Root-cause investigation</h2></div><ConfidenceBadge level={report.confidence} /></div>
+      <div className="rounded-xl border border-coral-line bg-coral-wash px-4 py-3"><p className="text-xs font-bold uppercase tracking-[0.1em] text-coral-deep">Bug report</p><p className="mt-1 whitespace-pre-line text-sm text-ink">{report.problem}</p></div>
+      <section><p className="label">Root cause</p><p className="copy">{report.rootCause}</p><p className="mt-2 text-sm leading-6 text-muted">{report.why}</p></section>
+      <section><p className="label mb-2">Affected files</p>{report.affectedFiles?.length ? <ul className="space-y-1 font-mono text-xs text-ink">{report.affectedFiles.map((file) => <li key={file}>{file}</li>)}</ul> : <p className="text-sm text-muted">No affected file was identified with enough confidence.</p>}</section>
+      <Separator />
+      <section><p className="label">Recommended fix</p><p className="mt-2 text-sm font-bold text-ink">{report.recommendedFix.summary}</p><p className="mt-1 text-sm leading-6 text-muted">{report.recommendedFix.rationale}</p><div className="mt-3 rounded-xl border border-amber-line bg-amber px-4 py-3 text-xs font-semibold text-amber-ink">Proposal only. No repository changes were applied.</div></section>
+      <section><p className="label mb-2">Recommended tests</p><ul className="list-disc space-y-1 pl-5 text-sm leading-6 text-ink">{report.recommendedTests.map((test) => <li key={test}>{test}</li>)}</ul></section>
+      {report.historicalIncidents?.length > 0 && <section><p className="label mb-2">Similar historical incidents</p><div className="space-y-2">{report.historicalIncidents.map((incident) => <div key={incident.id} className="rounded-xl border border-line bg-surface/60 px-3 py-3"><p className="text-sm font-bold text-ink">{incident.title}</p><p className="mt-1 text-xs leading-5 text-muted">{incident.excerpt}</p></div>)}</div></section>}
+      {report.warnings?.length > 0 && <div className="rounded-xl border border-amber-line bg-amber px-4 py-3 text-sm text-amber-ink">{report.warnings.join(' ')}</div>}
+      <Button variant="outline" onClick={onClear} className="w-full">Back to repository</Button>
     </div>
   )
 }
-
-// ── Main App ─────────────────────────────────────────────────────────────────
 
 const VIEW = { SETUP: 'setup', INGESTING: 'ingesting', READY: 'ready', ANSWERING: 'answering', ANSWER: 'answer', DEBUGGING: 'debugging', DEBUG_REPORT: 'debug-report' }
 
@@ -369,343 +150,77 @@ export default function App() {
   const [debugResult, setDebugResult] = useState(null)
   const pollRef = useRef(null)
 
-  // ── Stop polling on unmount ──
   useEffect(() => () => clearInterval(pollRef.current), [])
 
-  // ── Poll status while ingesting ──
   function startPolling(id) {
     clearInterval(pollRef.current)
     pollRef.current = setInterval(async () => {
       try {
-        const s = await fetchStatus(id)
-        setProgress(s.progress)
-        setCurrentStep(s.currentStep)
-        setStatusLabel(s.currentStep)
-
-        if (s.status === 'ready') {
+        const status = await fetchStatus(id)
+        setProgress(status.progress)
+        setCurrentStep(status.currentStep)
+        setStatusLabel(status.currentStep)
+        if (status.status === 'ready') {
           clearInterval(pollRef.current)
-          const ctx = await fetchContext(id)
-          setContext(ctx)
+          setContext(await fetchContext(id))
           setView(VIEW.READY)
-        } else if (s.status === 'failed') {
+        } else if (status.status === 'failed') {
           clearInterval(pollRef.current)
-          setError(s.currentStep.replace('Failed: ', ''))
+          setError(status.currentStep.replace('Failed: ', ''))
           setView(VIEW.SETUP)
         }
-      } catch (err) {
+      } catch (pollError) {
         clearInterval(pollRef.current)
-        setError(err.message)
+        setError(pollError.message)
         setView(VIEW.SETUP)
       }
     }, 2000)
   }
 
-  // ── Ingestion submit ──
-  async function handleSubmit(e) {
-    e.preventDefault()
+  async function handleSubmit(event) {
+    event.preventDefault()
     setError('')
-
     const trimmed = repoUrl.trim()
     if (!trimmed) return setError('Please enter a GitHub repository URL.')
-    if (!/^https:\/\/github\.com\/[^/]+\/[^/]+/.test(trimmed)) {
-      return setError('URL must be in the format: https://github.com/owner/repo')
-    }
-
+    if (!/^https:\/\/github\.com\/[^/]+\/[^/]+/.test(trimmed)) return setError('URL must be in the format: https://github.com/owner/repo')
     try {
       const { contextId: id } = await startIngestion(trimmed)
       setContextId(id)
       setProgress(0)
-      setCurrentStep('Fetching repository metadata')
+      setCurrentStep(STEPS[0])
       setView(VIEW.INGESTING)
       startPolling(id)
-    } catch (err) {
-      setError(err.message)
-    }
+    } catch (submitError) { setError(submitError.message) }
   }
 
-  // ── Query submit ──
-  async function handleQuery(e) {
-    e.preventDefault()
+  async function handleQuery(event) {
+    event.preventDefault()
     setQueryError('')
-    const q = question.trim()
-    if (!q) return setQueryError('Please enter a question.')
-
+    if (!question.trim()) return setQueryError('Please enter a question.')
     setView(VIEW.ANSWERING)
-    try {
-      const result = await submitQuery(contextId, q)
-      setQueryResult(result)
-      setView(VIEW.ANSWER)
-    } catch (err) {
-      setQueryError(err.message)
-      setView(VIEW.READY)
-    }
+    try { setQueryResult(await submitQuery(contextId, question.trim())); setView(VIEW.ANSWER) } catch (querySubmitError) { setQueryError(querySubmitError.message); setView(VIEW.READY) }
   }
 
-  async function handleDebug(e) {
-    e.preventDefault()
+  async function handleDebug(event) {
+    event.preventDefault()
     setDebugError('')
-    const report = bugReport.trim()
-    if (!report) return setDebugError('Please describe the bug.')
-
+    if (!bugReport.trim()) return setDebugError('Please describe the bug.')
     setView(VIEW.DEBUGGING)
-    try {
-      const result = await submitDebugReport(contextId, report)
-      setDebugResult(result)
-      setView(VIEW.DEBUG_REPORT)
-    } catch (err) {
-      setDebugError(err.message)
-      setView(VIEW.READY)
-    }
+    try { setDebugResult(await submitDebugReport(contextId, bugReport.trim())); setView(VIEW.DEBUG_REPORT) } catch (debugSubmitError) { setDebugError(debugSubmitError.message); setView(VIEW.READY) }
   }
 
-  // ── Reset to start ──
-  function handleReset() {
+  function reset() {
     clearInterval(pollRef.current)
-    setView(VIEW.SETUP)
-    setRepoUrl('')
-    setError('')
-    setContextId(null)
-    setProgress(0)
-    setCurrentStep('')
-    setContext(null)
-    setQuestion('')
-    setQueryError('')
-    setQueryResult(null)
-    setBugReport('')
-    setDebugError('')
-    setDebugResult(null)
+    setView(VIEW.SETUP); setRepoUrl(''); setError(''); setContextId(null); setProgress(0); setCurrentStep(''); setContext(null); setQuestion(''); setQueryError(''); setQueryResult(null); setBugReport(''); setDebugError(''); setDebugResult(null)
   }
 
-  // ════════════════════════════════════════════════════════
-  // SETUP VIEW
-  // ════════════════════════════════════════════════════════
-  if (view === VIEW.SETUP) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl shadow-md p-10 w-full max-w-lg">
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold text-gray-900">EchoProof</h1>
-            <p className="text-gray-500 mt-2 text-sm">
-              Your codebase remembers what your team forgot.
-            </p>
-          </div>
+  if (view === VIEW.SETUP) return <div className="app-shell flex min-h-screen flex-col"><main className="mx-auto flex w-full max-w-6xl flex-1 items-center px-5 pb-12 pt-10 lg:px-8"><div className="grid w-full items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20"><div className="animate-rise-in max-w-xl"><h1 className="font-display text-5xl font-bold leading-[0.98] tracking-[-0.065em] text-ink sm:text-6xl">Make every engineering decision <span className="text-blue">findable.</span></h1><p className="mt-6 max-w-lg text-base leading-7 text-muted sm:text-lg">Connect a GitHub repository and turn its code, history, and discussions into a memory your team can investigate.</p><div className="feature-index mt-10"><div className="feature-index-row"><span>01</span><strong>Code context</strong><em>Current implementation</em></div><div className="feature-index-row"><span>02</span><strong>Git history</strong><em>Why it changed</em></div><div className="feature-index-row"><span>03</span><strong>Debug reports</strong><em>What to fix next</em></div></div></div><Card className="animate-rise-in-delay w-full max-w-xl justify-self-end"><CardContent className="p-6 sm:p-8"><div className="mb-7 flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Start a context</p><h2 className="mt-2 font-display text-2xl font-bold tracking-[-0.04em] text-ink">Analyze a repository</h2></div><div className="rounded-xl bg-blue-wash p-3 text-blue-deep">↗</div></div><form onSubmit={handleSubmit} className="space-y-4"><label className="block text-sm font-bold text-ink">GitHub repository URL</label><Input type="url" value={repoUrl} onChange={(event) => { setRepoUrl(event.target.value); setError('') }} placeholder="https://github.com/owner/repo" />{error && <div className="rounded-xl border border-coral-line bg-coral-wash px-4 py-3 text-sm text-coral-deep">{error}</div>}<Button type="submit" variant="accent" className="w-full">Analyze repository <span aria-hidden="true">→</span></Button></form><p className="mt-5 text-xs leading-5 text-muted">Private repositories use the server's configured access policy.</p></CardContent></Card></div></main><footer className="mx-auto w-full max-w-6xl px-5 pb-6 text-xs text-muted lg:px-8">Built for teams who want the why behind the code.</footer></div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <label className="block text-sm font-medium text-gray-700">
-              GitHub Repository URL
-            </label>
-            <input
-              type="url"
-              value={repoUrl}
-              onChange={(e) => { setRepoUrl(e.target.value); setError('') }}
-              placeholder="https://github.com/owner/repo"
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-                {error}
-              </div>
-            )}
-            <button
-              type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition"
-            >
-              Analyze Repository
-            </button>
-          </form>
-        </div>
-      </div>
-    )
-  }
+  if (view === VIEW.INGESTING) return <div className="app-shell flex min-h-screen flex-col"><header className="mx-auto flex w-full max-w-6xl items-center px-5 py-6 lg:px-8"><BrandMark compact /></header><main className="mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-5 pb-12 lg:px-8"><Card className="w-full max-w-2xl"><CardContent className="p-6 sm:p-10"><div className="mb-8 flex items-start justify-between gap-5"><div><Badge variant="blue">Indexing context</Badge><h2 className="mt-3 font-display text-2xl font-bold tracking-[-0.04em] text-ink">Reading the repository</h2><p className="mt-2 max-w-md truncate font-mono text-xs text-muted">{repoUrl}</p></div><div className="h-3 w-3 animate-pulse rounded-full bg-blue shadow-[0_0_0_7px_rgba(44,104,255,0.12)]" /></div><div className="mb-3 flex items-center justify-between text-xs font-bold uppercase tracking-[0.1em] text-muted"><span>{statusLabel || 'Starting...'}</span><span className="font-mono text-ink">{progress}%</span></div><div className="h-3 w-full overflow-hidden rounded-full bg-surface"><div className="h-3 rounded-full bg-blue transition-all duration-700" style={{ width: `${progress}%` }} /></div><StepList currentStep={currentStep} status="indexing" /></CardContent></Card></main></div>
 
-  // ════════════════════════════════════════════════════════
-  // INGESTING VIEW
-  // ════════════════════════════════════════════════════════
-  if (view === VIEW.INGESTING) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl shadow-md p-10 w-full max-w-lg">
-          <div className="mb-6 text-center">
-            <h2 className="text-xl font-bold text-gray-900">Analyzing Repository</h2>
-            <p className="text-gray-400 text-sm mt-1 font-mono truncate">{repoUrl}</p>
-          </div>
+  if (view === VIEW.ANSWERING || view === VIEW.DEBUGGING) return <div className="app-shell flex min-h-screen items-center justify-center px-5"><Card className="w-full max-w-lg"><CardContent className="p-8 text-center sm:p-10"><div className={`mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl text-2xl ${view === VIEW.DEBUGGING ? 'bg-coral-wash text-coral' : 'bg-blue-wash text-blue'}`}>{view === VIEW.DEBUGGING ? '⌁' : '✦'}</div><Badge variant={view === VIEW.DEBUGGING ? 'danger' : 'blue'}>{view === VIEW.DEBUGGING ? 'Debugging report' : 'Investigation running'}</Badge><h2 className="mt-4 font-display text-2xl font-bold tracking-[-0.04em] text-ink">{view === VIEW.DEBUGGING ? 'Tracing the failure' : 'Following the evidence'}</h2><p className="mt-2 text-sm leading-6 text-muted">{view === VIEW.DEBUGGING ? 'Inspecting source, history, and similar incidents.' : 'Searching repository history and synthesizing an answer.'}</p></CardContent></Card></div>
 
-          <div className="w-full bg-gray-100 rounded-full h-3 mb-2 overflow-hidden">
-            <div
-              className="bg-blue-500 h-3 rounded-full transition-all duration-700"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <div className="flex justify-between text-xs text-gray-400 mb-6">
-            <span>{statusLabel || 'Starting…'}</span>
-            <span>{progress}%</span>
-          </div>
+  if (view === VIEW.ANSWER || view === VIEW.DEBUG_REPORT) return <div className="app-shell min-h-screen px-5 py-6 sm:py-10"><div className="mx-auto w-full max-w-4xl"><div className="mb-6 flex items-center justify-between gap-4"><BrandMark compact /><Button variant="ghost" onClick={reset} className="min-h-9 px-3 text-xs">← New repository</Button></div><Card><CardContent className="p-6 sm:p-8">{view === VIEW.ANSWER ? <AnswerPanel result={queryResult} onClear={() => { setView(VIEW.READY); setQuestion('') }} /> : <DebugReportPanel report={debugResult} onClear={() => { setView(VIEW.READY); setBugReport('') }} />}</CardContent></Card></div></div>
 
-          <StepList currentStep={currentStep} status="indexing" />
-        </div>
-      </div>
-    )
-  }
-
-  // ════════════════════════════════════════════════════════
-  // ANSWERING VIEW (loading state while query runs)
-  // ════════════════════════════════════════════════════════
-  if (view === VIEW.ANSWERING) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl shadow-md p-10 w-full max-w-lg text-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <h2 className="text-lg font-bold text-gray-900">Investigating…</h2>
-          <p className="text-gray-400 text-sm mt-1">
-            Searching repository history and synthesizing an answer.
-          </p>
-          <p className="mt-4 text-sm text-gray-500 font-mono italic truncate px-4">"{question}"</p>
-        </div>
-      </div>
-    )
-  }
-
-  // ════════════════════════════════════════════════════════
-  // ANSWER VIEW
-  // ════════════════════════════════════════════════════════
-  if (view === VIEW.ANSWER) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
-        <div className="bg-white rounded-2xl shadow-md p-8 w-full max-w-2xl">
-          {/* Repo context header */}
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
-            <div>
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Repository</p>
-              <p className="text-sm font-semibold text-gray-800">{context?.name}</p>
-            </div>
-            <button
-              onClick={handleReset}
-              className="text-xs text-gray-400 hover:text-gray-600 transition"
-            >
-              ← New repo
-            </button>
-          </div>
-
-          <AnswerPanel result={queryResult} onClear={() => { setView(VIEW.READY); setQuestion('') }} />
-        </div>
-      </div>
-    )
-  }
-
-  if (view === VIEW.DEBUGGING) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl shadow-md p-10 w-full max-w-lg text-center">
-          <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <h2 className="text-lg font-bold text-gray-900">Building debugging report</h2>
-          <p className="text-gray-400 text-sm mt-1">Inspecting source, history, and similar incidents.</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (view === VIEW.DEBUG_REPORT) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
-        <div className="bg-white rounded-2xl shadow-md p-8 w-full max-w-2xl">
-          <DebugReportPanel report={debugResult} onClear={() => { setView(VIEW.READY); setBugReport('') }} />
-        </div>
-      </div>
-    )
-  }
-
-  // ════════════════════════════════════════════════════════
-  // READY VIEW — repo dashboard + query input
-  // ════════════════════════════════════════════════════════
-  return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
-      <div className="bg-white rounded-2xl shadow-md p-8 w-full max-w-lg">
-
-        {/* Success header */}
-        <div className="text-center mb-6">
-          <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <span className="text-green-600 text-2xl">✓</span>
-          </div>
-          <h2 className="text-xl font-bold text-gray-900">Repository Ready</h2>
-          <p className="text-gray-500 text-sm mt-1">{context?.name}</p>
-          {context?.description && (
-            <p className="text-gray-400 text-xs mt-1">{context.description}</p>
-          )}
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          {[
-            { label: 'Documents', value: context?.ingestionProgress?.totalDocuments ?? 0 },
-            { label: 'Status', value: 'Ready' },
-            { label: 'Context ID', value: contextId?.slice(-6) },
-          ].map(({ label, value }) => (
-            <div key={label} className="bg-gray-50 rounded-xl p-3 text-center">
-              <p className="text-lg font-bold text-gray-800">{value}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Query input */}
-        <form onSubmit={handleQuery} className="space-y-3">
-          <label className="block text-sm font-medium text-gray-700">
-            Ask a question about this repository
-          </label>
-          <textarea
-            value={question}
-            onChange={(e) => { setQuestion(e.target.value); setQueryError('') }}
-            placeholder="Why was authentication changed? When was rate limiting introduced?"
-            rows={3}
-            className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-          />
-          {queryError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-              {queryError}
-            </div>
-          )}
-          <button
-            type="submit"
-            disabled={!question.trim()}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold py-3 rounded-lg transition"
-          >
-            Investigate
-          </button>
-        </form>
-
-        <div className="border-t border-gray-100 mt-6 pt-6">
-          <form onSubmit={handleDebug} className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">Investigate a bug</label>
-            <textarea
-              value={bugReport}
-              onChange={(e) => { setBugReport(e.target.value); setDebugError('') }}
-              placeholder="Describe the unexpected behavior, steps to reproduce, and any error message."
-              rows={4}
-              maxLength={5000}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
-            />
-            {debugError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-                {debugError}
-              </div>
-            )}
-            <button
-              type="submit"
-              disabled={!bugReport.trim()}
-              className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white font-semibold py-3 rounded-lg transition"
-            >
-              Generate Debugging Report
-            </button>
-          </form>
-        </div>
-
-        <button
-          onClick={handleReset}
-          className="mt-4 w-full border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-lg transition text-sm"
-        >
-          Analyze Another Repository
-        </button>
-      </div>
-    </div>
-  )
+  return <div className="app-shell min-h-screen px-5 py-6 sm:py-10"><div className="mx-auto w-full max-w-6xl"><header className="mb-8 flex items-center justify-between gap-4"><BrandMark compact /><Button variant="ghost" onClick={reset} className="min-h-9 px-3 text-xs">← New repository</Button></header><div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><Badge variant="success">Context ready</Badge><h1 className="mt-3 font-display text-3xl font-bold tracking-[-0.055em] text-ink sm:text-4xl">What do you want to understand?</h1><p className="mt-2 text-sm text-muted">Search the decisions behind <span className="font-semibold text-ink">{context?.name}</span>.</p></div><p className="font-mono text-xs text-muted">ID / {contextId?.slice(-8)}</p></div><div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]"><Card><CardContent className="p-6 sm:p-8"><div className="mb-7 flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Repository context</p><h2 className="mt-2 font-display text-2xl font-bold tracking-[-0.04em] text-ink">Ask the memory</h2></div><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-mint text-xl text-mint-ink">✓</div></div><div className="mb-7 grid grid-cols-3 gap-2">{[{ label: 'Documents', value: context?.ingestionProgress?.totalDocuments ?? 0 }, { label: 'Status', value: 'Ready' }, { label: 'Context', value: contextId?.slice(-6) }].map(({ label, value }) => <div key={label} className="rounded-xl border border-line bg-surface/60 p-3"><p className="truncate text-sm font-bold text-ink">{value}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-muted">{label}</p></div>)}</div><form onSubmit={handleQuery} className="space-y-3"><label className="block text-sm font-bold text-ink">Ask a question</label><Textarea value={question} onChange={(event) => { setQuestion(event.target.value); setQueryError('') }} placeholder="Why was authentication changed? When was rate limiting introduced?" rows={4} />{queryError && <div className="rounded-xl border border-coral-line bg-coral-wash px-4 py-3 text-sm text-coral-deep">{queryError}</div>}<Button type="submit" variant="accent" disabled={!question.trim()} className="w-full">Investigate <span aria-hidden="true">→</span></Button></form></CardContent></Card><Card className="border-coral-line bg-coral-wash/50"><CardContent className="p-6 sm:p-8"><div className="mb-7 flex items-start justify-between gap-4"><div><Badge variant="danger">Debug mode</Badge><h2 className="mt-3 font-display text-2xl font-bold tracking-[-0.04em] text-ink">Something broke?</h2><p className="mt-2 text-sm leading-6 text-muted">Generate a grounded report from code, history, and prior incidents.</p></div><div className="rounded-xl bg-white/80 p-3 text-xl text-coral">⌁</div></div><form onSubmit={handleDebug} className="space-y-3"><label className="block text-sm font-bold text-ink">Describe the bug</label><Textarea value={bugReport} onChange={(event) => { setBugReport(event.target.value); setDebugError('') }} placeholder="Expected behavior, actual behavior, reproduction steps..." rows={7} maxLength={5000} className="border-coral-line bg-white/80 focus:border-coral focus:ring-coral/10" />{debugError && <div className="rounded-xl border border-coral-line bg-white/80 px-4 py-3 text-sm text-coral-deep">{debugError}</div>}<Button type="submit" variant="coral" disabled={!bugReport.trim()} className="w-full">Generate debugging report <span aria-hidden="true">↗</span></Button></form></CardContent></Card></div><footer className="mt-8 flex flex-wrap items-center justify-between gap-3 text-xs text-muted"><span>{context?.description || 'A living index of your repository memory.'}</span><span className="font-mono">EchoProof / workspace</span></footer></div></div>
 }

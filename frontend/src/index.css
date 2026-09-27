@@ -1,1 +1,69 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400&family=IBM+Plex+Mono:wght@400;500&family=Work+Sans:wght@400;500;600&display=swap');
 @import "tailwindcss";
+
+:root {
+	font-family: 'Work Sans', ui-sans-serif, sans-serif;
+	color: #221c14;
+	background: #efe7d8;
+	font-synthesis: none;
+	text-rendering: optimizeLegibility;
+	--paper: #efe7d8;
+	--card: #fbf7ec;
+	--ink: #221c14;
+	--ink-soft: #6b5f4c;
+	--accent: #a63d2f;
+	--line: rgba(34, 28, 20, 0.18);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+button, input, textarea { font: inherit; }
+
+.app-shell {
+	min-height: 100vh;
+	background-color: var(--paper);
+	background-image: radial-gradient(rgba(34, 28, 20, 0.16) 0.65px, transparent 0.65px);
+	background-size: 13px 13px;
+}
+
+.font-display { font-family: 'Fraunces', Georgia, serif; font-weight: 400; }
+.font-mono { font-family: 'IBM Plex Mono', monospace; }
+.text-ink { color: var(--ink); }
+.text-muted { color: var(--muted); }
+.text-muted { color: var(--ink-soft); }
+.bg-ink { background-color: var(--ink); }
+.bg-ink-soft { background-color: var(--ink-soft); }
+.bg-card { background-color: var(--card); }
+.bg-accent { background-color: var(--accent); }
+.bg-accent-deep { background-color: #873025; }
+.bg-blue, .bg-coral, .bg-coral-deep { background-color: var(--accent); }
+.bg-blue-deep, .bg-blue-wash, .bg-coral-wash, .bg-mint, .bg-amber { background-color: var(--card); }
+.text-blue, .text-blue-deep, .text-coral, .text-coral-deep, .text-mint-ink, .text-amber-ink { color: var(--accent); }
+.text-accent { color: var(--accent); }
+.bg-surface { background-color: var(--card); }
+.border-line { border-color: var(--line); }
+.border-blue-line, .border-coral-line, .border-mint-line, .border-amber-line { border-color: var(--line); }
+
+.label { color: var(--ink-soft); font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+.copy { color: var(--ink); font-size: 0.95rem; line-height: 1.7; }
+
+.app-shell .rounded-xl, .app-shell .rounded-2xl, .app-shell .rounded-lg, .app-shell .rounded-full { border-radius: 0 !important; }
+
+@keyframes rise-in {
+	from { opacity: 0; transform: translateY(10px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-rise-in { animation: rise-in 0.45s ease-out both; }
+.animate-rise-in-delay { animation: rise-in 0.55s 0.08s ease-out both; }
+
+.feature-index { border-top: 1px solid var(--line); }
+.feature-index-row { display: grid; grid-template-columns: 2.5rem minmax(8rem, 1fr) auto; align-items: center; gap: 1rem; border-bottom: 1px solid var(--line); padding: 0.9rem 0; }
+.feature-index-row span { color: var(--coral); font-family: 'DM Mono', monospace; font-size: 0.72rem; }
+.feature-index-row strong { color: var(--ink); font-size: 0.88rem; }
+.feature-index-row em { color: var(--muted); font-size: 0.75rem; font-style: normal; }
+
+@media (max-width: 640px) {
+	.feature-index-row { grid-template-columns: 2rem 1fr; gap: 0.75rem; }
+	.feature-index-row em { grid-column: 2; margin-top: -0.5rem; }
+}
